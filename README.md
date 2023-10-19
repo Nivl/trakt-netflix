@@ -16,3 +16,21 @@ On the first run, the script will mark as watched the last 20 movies/episodes yo
 | TRAKT_COOKIE | required |  | Value of the `_traktsession` cookie |
 | TRAKT_CSRF | required | | Value of the `x-csrf-token` token. You can get it by opening the Network tab in Chrome, triggering Trakt private API, and looking at the headers of a request such as `episodes.json`. `X-Csrf-Token` should be at the bottom of the headers list. You can trigger their API by adding an item to your watchlist by clicking on Add To List on a poster, after doing so you'll see a `watchlist` request in the requests list. [Click here](https://trakt.tv/search/movies/?query=lord+of+the+ring) for quick access to a list of movies to add to your watchlist.
 | SLACK_WEBHOOKS | optional | webhook1,webhook2 | |
+
+### setup with Docker Compose
+
+```yaml
+version: "3"
+services:
+  trakt-netflix:
+    image: "trakt-netflix"
+    container_name: ghcr.io/nivl/trakt-netflix
+    environment:
+    - TRAKT_CSRF=xxx
+    - TRAKT_COOKIE=yyy
+    - NETFLIX_ACCOUNT_ID=zzz
+    - NETFLIX_COOKIE=aaa
+    - SLACK_WEBHOOKS=bbb
+    volumes:
+      - /path/to/config:/config
+```
