@@ -1,6 +1,7 @@
 bin/
 .task/
 .env
-data*
+data
+data.bkp
 docker-compose.yml
 trakt-netflix

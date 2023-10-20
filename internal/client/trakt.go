@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,7 +23,8 @@ type TraktConfig struct {
 // MarkAsWatched mark as watched all the provided media
 func (c *Client) MarkAsWatched(conf TraktConfig, history []*NetflixHistory) {
 	cfg := &conf
-	lastImportedRaw, err := os.ReadFile("./data")
+	dataFilePath := filepath.Join(ConfigDir(), "data")
+	lastImportedRaw, err := os.ReadFile(dataFilePath)
 	if err != nil {
 		slog.Warn("could not read last imported file", "error", err.Error())
 	}
@@ -50,7 +52,7 @@ func (c *Client) MarkAsWatched(conf TraktConfig, history []*NetflixHistory) {
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	err = os.WriteFile("./data", []byte(history[0].String()), 0o644)
+	err = os.WriteFile(dataFilePath, []byte(history[0].String()), 0o644)
 	if err != nil {
 		c.Report(fmt.Sprintf(`Trakt Couldn't update DB with %q. Error: %s`+history[0].String(), err.Error()))
 		slog.Warn("could not read last imported file", "error", err.Error())
