@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/ashwanthkumar/slack-go-webhook v0.0.0-20200209025033-430dd4e66960
+	github.com/robfig/cron v1.2.0
 	github.com/sethvargo/go-envconfig v0.9.0
 )
 

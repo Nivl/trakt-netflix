@@ -44,7 +44,7 @@ func (c *Client) MarkAsWatched(conf TraktConfig, history []*NetflixHistory) {
 		time.Sleep(500 * time.Millisecond)
 		err = c.watch(cfg, h, u, id)
 		if err != nil {
-			c.Report("Couldn't mark as watched: " + h.String() + ". Error: " + err.Error())
+			c.Report("Trakt: Couldn't mark as watched: " + h.String() + ". Error: " + err.Error())
 			slog.Error("failed to watch", "media", h.String(), "error", err.Error())
 		}
 
@@ -55,7 +55,7 @@ func (c *Client) MarkAsWatched(conf TraktConfig, history []*NetflixHistory) {
 	err = os.WriteFile(dataFilePath, []byte(history[0].String()), 0o644)
 	if err != nil {
 		c.Report(fmt.Sprintf(`Trakt Couldn't update DB with %q. Error: %s`+history[0].String(), err.Error()))
-		slog.Warn("could not read last imported file", "error", err.Error())
+		slog.Error("could not write last imported file", "error", err.Error())
 	}
 }
 
