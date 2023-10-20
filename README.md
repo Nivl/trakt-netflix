@@ -23,8 +23,8 @@ On the first run, the script will mark as watched the last 20 movies/episodes yo
 version: "3"
 services:
   trakt-netflix:
-    image: "trakt-netflix"
-    container_name: ghcr.io/nivl/trakt-netflix
+    image: ghcr.io/nivl/trakt-netflix
+    container_name: "trakt-netflix"
     environment:
     - TRAKT_CSRF=xxx
     - TRAKT_COOKIE=yyy
