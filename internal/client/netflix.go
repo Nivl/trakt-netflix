@@ -40,6 +40,7 @@ var netflixTitleRegex = regexp.MustCompile(`(.+): (.+): "(.+)"`)
 
 // FetchNetflixHistory returns the viewing history from Netflix
 func (c *Client) FetchNetflixHistory(cfg NetflixConfig) (history []*NetflixHistory, err error) {
+	slog.Info("Checking for new watched medias on Netflix")
 	u := "https://www.netflix.com/viewingactivity/" + cfg.AccountID
 	req, err := http.NewRequest(http.MethodGet, u, http.NoBody)
 	if err != nil {

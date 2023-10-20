@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
+	"os/signal"
 
 	"github.com/Nivl/trakt-netflix/internal/client"
+	"github.com/robfig/cron"
 	"github.com/sethvargo/go-envconfig"
 )
 
@@ -17,7 +20,8 @@ type appConfig struct {
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalln(err)
+		slog.Error("something went wrong", "error", err.Error())
+		os.Exit(1)
 	}
 }
 
@@ -29,16 +33,28 @@ func run() (err error) {
 	}
 
 	c := client.New(cfg.SlackWebhooks)
-	defer func() {
-		if err != nil {
-			c.Report("Trakt error: " + err.Error())
-		}
-	}()
+	slog.Info("Trakt info: starting")
 
+	crn := cron.New()
+	err = crn.AddFunc("@hourly", func() { process(&cfg, c) })
+	if err != nil {
+		return fmt.Errorf("could not setup cron: %w", err)
+	}
+	crn.Start()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, os.Kill)
+	<-quit
+	slog.Info("Trakt info: stopping")
+	crn.Stop()
+	return nil
+}
+
+func process(cfg *appConfig, c *client.Client) {
 	h, err := c.FetchNetflixHistory(cfg.Netflix)
 	if err != nil {
-		return fmt.Errorf("could not fetch shows from Netlifx: %w", err)
+		slog.Info("could not fetch shows from Netflix", "error", err)
+		return
 	}
 	c.MarkAsWatched(cfg.Trakt, h)
-	return nil
 }
