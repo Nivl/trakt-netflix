@@ -36,7 +36,11 @@ func (h *NetflixHistory) SearchQuery() string {
 	return url.QueryEscape(h.String())
 }
 
-var netflixTitleRegex = regexp.MustCompile(`(.+): (.+): "(.+)"`)
+var (
+	netflixTitleDefaultRegex   = regexp.MustCompile(`(.+): (.+): "(.+)"`)
+	netflixTitleShowColonRegex = regexp.MustCompile(`((.+): (.+)): ((.+): (.+)): "(.+)"`)
+	netflixTitleSeasonRegex    = regexp.MustCompile(`(.+): Season (\d+): "(.+)"`)
+)
 
 // FetchNetflixHistory returns the viewing history from Netflix
 func (c *Client) FetchNetflixHistory(cfg NetflixConfig) (history []*NetflixHistory, err error) {
@@ -78,7 +82,7 @@ func (c *Client) FetchNetflixHistory(cfg NetflixConfig) (history []*NetflixHisto
 		title := s.Find(".title").Find("a").Text()
 		h := &NetflixHistory{
 			Title:  title,
-			IsShow: netflixTitleRegex.MatchString(title),
+			IsShow: netflixTitleDefaultRegex.MatchString(title),
 			Date:   s.Find(".date").Text(),
 		}
 		history = append(history, h)
@@ -87,16 +91,35 @@ func (c *Client) FetchNetflixHistory(cfg NetflixConfig) (history []*NetflixHisto
 			return
 		}
 
-		// Format is `<Show Name>: <Show Name>: "<Episode Name>"``
-		matches := netflixTitleRegex.FindAllStringSubmatch(title, -1)
-		if (len(matches) != 1 && len(matches[0]) != 4) || matches[0][1] != matches[0][2] {
-			slog.Warn("Potentially weird title found", "title", title)
-			h.IsShow = false
+		// Format is `<Show Name>: <Show Name>: "<Episode Name>"`
+		// This is the most common format
+		matches := netflixTitleDefaultRegex.FindAllStringSubmatch(title, -1)
+		if (len(matches) == 1 && len(matches[0]) == 4) && matches[0][1] == matches[0][2] {
+			h.Title = matches[0][1]
+			h.EpisodeName = matches[0][3]
 			return
 		}
 
-		h.Title = matches[0][1]
-		h.EpisodeName = matches[0][3]
+		// Show with a colon in its name like "Squid Game: The Challenge".
+		// Format is `<Show: Name>: <Show: Name>: "<Episode Name>"`
+		matches = netflixTitleShowColonRegex.FindAllStringSubmatch(title, -1)
+		if (len(matches) == 1 && len(matches[0]) == 8) && matches[0][1] == matches[0][4] {
+			h.Title = matches[0][1]
+			h.EpisodeName = matches[0][7]
+			return
+		}
+
+		// Weird edge case: `<Show Name>: Season <number>: "<Episode Name>"`
+		// Ex: Strong Girl Nam-soon: Season 1: "Forewarned Bloodbath"
+		matches = netflixTitleSeasonRegex.FindAllStringSubmatch(title, -1)
+		if len(matches) == 1 && len(matches[0]) == 4 {
+			h.Title = matches[0][1]
+			h.EpisodeName = matches[0][3]
+			return
+		}
+
+		c.Report("Potentially weird title found: " + title)
+		h.IsShow = false
 	})
 
 	return history, nil
