@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
+	"unicode"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -15,6 +17,7 @@ import (
 type NetflixConfig struct {
 	AccountID string `env:"ACCOUNT_ID"`
 	Cookie    string `env:"COOKIE,required"`
+	URL       string `env:"URL,default=https://www.netflix.com/viewingactivity"`
 }
 
 // NetflixHistory contains the data from Netflix
@@ -45,7 +48,7 @@ var (
 // FetchNetflixHistory returns the viewing history from Netflix
 func (c *Client) FetchNetflixHistory(cfg NetflixConfig) (history []*NetflixHistory, err error) {
 	slog.Info("Checking for new watched medias on Netflix")
-	u := "https://www.netflix.com/viewingactivity/" + cfg.AccountID
+	u := cfg.URL + "/" + cfg.AccountID
 	req, err := http.NewRequest(http.MethodGet, u, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("could not create request: %w", err)
@@ -73,13 +76,19 @@ func (c *Client) FetchNetflixHistory(cfg NetflixConfig) (history []*NetflixHisto
 		return nil, fmt.Errorf("request failed with status %d", res.StatusCode)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	return c.extractData(res.Body)
+}
+
+func (c *Client) extractData(r io.Reader) (history []*NetflixHistory, err error) {
+	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse HTML: %w", err)
 	}
 
 	doc.Find(".retableRow").Each(func(_ int, s *goquery.Selection) {
 		title := s.Find(".title").Find("a").Text()
+		title = cleanupString(title)
+
 		h := &NetflixHistory{
 			Title:  title,
 			IsShow: netflixTitleDefaultRegex.MatchString(title),
@@ -123,4 +132,22 @@ func (c *Client) FetchNetflixHistory(cfg NetflixConfig) (history []*NetflixHisto
 	})
 
 	return history, nil
+}
+
+func cleanupString(s string) string {
+	out := strings.Builder{}
+	lastIsSpace := true
+	for _, r := range s {
+		isSpace := unicode.IsSpace(r)
+		if isSpace && lastIsSpace {
+			continue
+		}
+		lastIsSpace = isSpace
+		if isSpace {
+			out.WriteRune(' ')
+			continue
+		}
+		out.WriteRune(r)
+	}
+	return out.String()
 }
