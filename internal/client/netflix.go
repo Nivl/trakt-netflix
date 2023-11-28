@@ -42,7 +42,7 @@ func (h *NetflixHistory) SearchQuery() string {
 var (
 	netflixTitleDefaultRegex   = regexp.MustCompile(`(.+): (.+): "(.+)"`)
 	netflixTitleShowColonRegex = regexp.MustCompile(`((.+): (.+)): ((.+): (.+)): "(.+)"`)
-	netflixTitleSeasonRegex    = regexp.MustCompile(`(.+): Season (\d+): "(.+)"`)
+	netflixTitleSeasonRegex    = regexp.MustCompile(`(.+): ((Season (\d+))|(Limited Series)): "(.+)"`)
 )
 
 // FetchNetflixHistory returns the viewing history from Netflix
@@ -119,11 +119,13 @@ func (c *Client) extractData(r io.Reader) (history []*NetflixHistory, err error)
 		}
 
 		// Weird edge case: `<Show Name>: Season <number>: "<Episode Name>"`
-		// Ex: Strong Girl Nam-soon: Season 1: "Forewarned Bloodbath"
+		//                  `<Show Name>: Limited Series: "<Episode Name>"`
+		// Ex: Alice in Borderland: Season 2: "Episode 8"
+		// Ex: Strong Girl Nam-soon: Limited Series: "Forewarned Bloodbath"
 		matches = netflixTitleSeasonRegex.FindAllStringSubmatch(title, -1)
-		if len(matches) == 1 && len(matches[0]) == 4 {
+		if len(matches) == 1 && len(matches[0]) == 7 {
 			h.Title = matches[0][1]
-			h.EpisodeName = matches[0][3]
+			h.EpisodeName = matches[0][6]
 			return
 		}
 

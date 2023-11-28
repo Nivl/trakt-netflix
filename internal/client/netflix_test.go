@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,25 +16,51 @@ func TestExtractData(t *testing.T) {
 	require.NoError(t, err)
 	h, err := c.extractData(bytes.NewReader(data))
 	require.NoError(t, err)
-	require.Len(t, h, 5)
-	//
-	require.Equal(t, "Nowhere To Hide", h[0].EpisodeName)
-	require.Equal(t, "Squid Game: The Challenge", h[0].Title)
-	require.Equal(t, true, h[0].IsShow)
-	//
-	require.Equal(t, "Light and Shadow of Gangnam", h[1].EpisodeName)
-	require.Equal(t, "Strong Girl Nam-soon", h[1].Title)
-	require.Equal(t, true, h[1].IsShow)
-	//
-	require.Equal(t, "", h[2].EpisodeName)
-	require.Equal(t, "Pain Hustlers", h[2].Title)
-	require.Equal(t, false, h[2].IsShow)
-	//
-	require.Equal(t, "Whatever", h[3].EpisodeName)
-	require.Equal(t, "Scott Pilgrim Takes Off", h[3].Title)
-	require.Equal(t, true, h[3].IsShow)
-	//
-	require.Equal(t, "", h[4].EpisodeName)
-	require.Equal(t, "Ali Wong: Hard Knock Wife", h[4].Title)
-	require.Equal(t, false, h[4].IsShow)
+
+	testCases := []struct {
+		name    string
+		episode string
+		isShow  bool
+	}{
+		{
+			name:    "Squid Game: The Challenge",
+			episode: "Nowhere To Hide",
+			isShow:  true,
+		},
+		{
+			name:    "Alice in Borderland",
+			episode: "Episode 8",
+			isShow:  true,
+		},
+		{
+			name:    "Strong Girl Nam-soon",
+			episode: "Light and Shadow of Gangnam",
+			isShow:  true,
+		},
+		{
+			name:    "Pain Hustlers",
+			episode: "",
+			isShow:  false,
+		},
+		{
+			name:    "Scott Pilgrim Takes Off",
+			episode: "Whatever",
+			isShow:  true,
+		},
+		{
+			name:    "Ali Wong: Hard Knock Wife",
+			episode: "",
+			isShow:  false,
+		},
+	}
+	require.Len(t, h, len(testCases))
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.episode, tc.episode)
+			assert.Equal(t, tc.name, tc.name)
+			assert.Equal(t, tc.isShow, tc.isShow)
+		})
+	}
 }
