@@ -39,6 +39,7 @@ func (c *Client) MarkAsWatched(conf TraktConfig, history []*NetflixHistory) {
 		if err != nil {
 			c.Report("Trakt: Couldn't find: " + h.String() + ". Error: " + err.Error())
 			slog.Error("failed to search", "media", h.String(), "error", err.Error())
+			continue
 		}
 
 		time.Sleep(500 * time.Millisecond)
@@ -46,6 +47,7 @@ func (c *Client) MarkAsWatched(conf TraktConfig, history []*NetflixHistory) {
 		if err != nil {
 			c.Report("Trakt: Couldn't mark as watched: " + h.String() + ". Error: " + err.Error())
 			slog.Error("failed to watch", "media", h.String(), "error", err.Error())
+			continue
 		}
 
 		c.Report("Trakt: Watched " + h.String())

@@ -38,6 +38,11 @@ func TestExtractData(t *testing.T) {
 			isShow:  true,
 		},
 		{
+			name:    "Goedam",
+			episode: "Threshold",
+			isShow:  true,
+		},
+		{
 			name:    "Pain Hustlers",
 			episode: "",
 			isShow:  false,
@@ -55,12 +60,13 @@ func TestExtractData(t *testing.T) {
 	}
 	require.Len(t, h, len(testCases))
 
-	for _, tc := range testCases {
+	for i, tc := range testCases {
+		i := i
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.episode, tc.episode)
-			assert.Equal(t, tc.name, tc.name)
-			assert.Equal(t, tc.isShow, tc.isShow)
+			assert.Equal(t, tc.episode, h[i].EpisodeName)
+			assert.Equal(t, tc.name, h[i].Title)
+			assert.Equal(t, tc.isShow, h[i].IsShow)
 		})
 	}
 }
