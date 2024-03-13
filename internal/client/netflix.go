@@ -35,8 +35,15 @@ func (h *NetflixHistory) String() string {
 	return h.Title
 }
 
+// SearchQuery returns the query string to use on trakt to search for the media
 func (h *NetflixHistory) SearchQuery() string {
-	return url.QueryEscape(h.String())
+	query := h.Title
+	if h.IsShow {
+		// for some reasons, wrapping the title and the episode name in quotes
+		// returns better search results
+		query = fmt.Sprintf("%q: %q", h.Title, h.EpisodeName)
+	}
+	return url.QueryEscape(query)
 }
 
 var (
