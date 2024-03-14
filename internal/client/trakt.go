@@ -112,9 +112,9 @@ func (c *Client) searchMedia(cfg *TraktConfig, h *NetflixHistory) (watchURL, id 
 	var u string
 	switch h.IsShow {
 	case true:
-		u = fmt.Sprintf("https://trakt.tv/search/episodes/?query=%q", h.SearchQuery())
+		u = fmt.Sprintf("https://trakt.tv/search/episodes/?query=%s", h.SearchQuery())
 	default:
-		u = fmt.Sprintf("https://trakt.tv/search/movies/?query=%q", h.SearchQuery())
+		u = fmt.Sprintf("https://trakt.tv/search/movies/?query=%s", h.SearchQuery())
 	}
 
 	req, err := http.NewRequest(http.MethodGet, u, http.NoBody)
