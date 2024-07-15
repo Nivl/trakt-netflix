@@ -1,10 +1,16 @@
-FROM golang:alpine as builder
+FROM --platform=$BUILDPLATFORM golang:alpine as builder
+ARG TARGETOS
+ARG TARGETARCH
+
+# SSL Certificate
 RUN apk add -U --no-cache ca-certificates
 RUN update-ca-certificates
 
+# Build the binary
 COPY . /build
-RUN cd /build && go build -o /app .
+RUN cd /build && GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /app .
 
+# Create the final image
 FROM scratch
 COPY --from=builder /app /app
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
