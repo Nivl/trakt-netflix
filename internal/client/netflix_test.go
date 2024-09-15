@@ -23,6 +23,11 @@ func TestExtractData(t *testing.T) {
 		isShow  bool
 	}{
 		{
+			name:    "That '90s Show",
+			episode: "Friends in Low Places",
+			isShow:  true,
+		},
+		{
 			name:    "Squid Game: The Challenge",
 			episode: "Nowhere To Hide",
 			isShow:  true,
