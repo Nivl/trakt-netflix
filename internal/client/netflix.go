@@ -140,7 +140,28 @@ func (c *Client) extractData(r io.Reader) (history []*NetflixHistory, err error)
 			return
 		}
 
-		c.Report("Potentially weird title found: " + title)
+		// Now it gets complicated...
+		// Some shows have a subtitle as season name
+		// Ex. Slasher: The Executioner: "Soon Your Own Eyes Will See"
+		//
+		// It's also possible for a movie to have multiple colons in its name.
+
+		// If there's only 2 colons we're going to assume it's a show
+		// and we'll drop the middle part
+		matches = netflixTitleDefaultRegex.FindAllStringSubmatch(title, -1)
+		if len(matches) == 1 && len(matches[0]) == 4 {
+			h.Title = matches[0][1]
+			h.EpisodeName = matches[0][3]
+
+			c.Report(
+				fmt.Sprintf("Potentially weird title found: %s. Assuming it's a show named '%s' with an episode named '%s'",
+					title, h.Title, h.EpisodeName,
+				))
+
+			return
+		}
+
+		c.Report(fmt.Sprintf("Potentially weird title found: %s. Assuming it's a movie.", title))
 		h.IsShow = false
 	})
 
