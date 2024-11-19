@@ -53,7 +53,7 @@ var (
 )
 
 // FetchNetflixHistory returns the viewing history from Netflix
-func (c *Client) FetchNetflixHistory(cfg NetflixConfig) (history []*NetflixHistory, err error) {
+func (c *Client) FetchNetflixHistory(cfg NetflixConfig, currentHistory *History) (history []*NetflixHistory, err error) {
 	slog.Info("Checking for new watched medias on Netflix")
 	u := cfg.URL + "/" + cfg.AccountID
 	req, err := http.NewRequest(http.MethodGet, u, http.NoBody)
@@ -83,10 +83,10 @@ func (c *Client) FetchNetflixHistory(cfg NetflixConfig) (history []*NetflixHisto
 		return nil, fmt.Errorf("request failed with status %d", res.StatusCode)
 	}
 
-	return c.extractData(res.Body)
+	return c.extractData(res.Body, currentHistory)
 }
 
-func (c *Client) extractData(r io.Reader) (history []*NetflixHistory, err error) {
+func (c *Client) extractData(r io.Reader, currentHistory *History) (history []*NetflixHistory, err error) {
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse HTML: %w", err)
@@ -95,6 +95,10 @@ func (c *Client) extractData(r io.Reader) (history []*NetflixHistory, err error)
 	doc.Find(".retableRow").Each(func(_ int, s *goquery.Selection) {
 		title := s.Find(".title").Find("a").Text()
 		title = cleanupString(title)
+		if currentHistory.Has(title) {
+			return
+		}
+		currentHistory.Push(title)
 
 		h := &NetflixHistory{
 			Title:  title,
