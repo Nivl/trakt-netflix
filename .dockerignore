@@ -2,6 +2,7 @@ bin/
 .task/
 .env
 data
+history
 data.bkp
 docker-compose.yml
 trakt-netflix

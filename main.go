@@ -35,8 +35,13 @@ func run() (err error) {
 	c := client.New(cfg.SlackWebhooks)
 	slog.Info("Trakt info: starting")
 
+	currentHistory := client.NewHistory()
+	if err = currentHistory.Load(); err != nil {
+		slog.Warn("could not load history", "error", err.Error())
+	}
+
 	crn := cron.New()
-	err = crn.AddFunc("@hourly", func() { process(&cfg, c) })
+	err = crn.AddFunc("@hourly", func() { process(&cfg, c, currentHistory) })
 	if err != nil {
 		return fmt.Errorf("could not setup cron: %w", err)
 	}
@@ -46,12 +51,16 @@ func run() (err error) {
 	signal.Notify(quit, os.Interrupt, os.Kill)
 	<-quit
 	slog.Info("Trakt info: stopping")
+
+	if err = currentHistory.Write(); err != nil {
+		slog.Warn("could not write history", "error", err.Error())
+	}
 	crn.Stop()
 	return nil
 }
 
-func process(cfg *appConfig, c *client.Client) {
-	h, err := c.FetchNetflixHistory(cfg.Netflix)
+func process(cfg *appConfig, c *client.Client, currentHistory *client.History) {
+	h, err := c.FetchNetflixHistory(cfg.Netflix, currentHistory)
 	if err != nil {
 		slog.Info("could not fetch shows from Netflix", "error", err)
 		return
