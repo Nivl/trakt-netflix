@@ -8,14 +8,17 @@ import (
 )
 
 type History struct {
-	ItemsSearch map[string]struct{} `json:"search"`
-	Items       []string            `json:"items"`
+	ItemsSearch       map[string]struct{} `json:"search"`
+	Items             []string            `json:"items"`
+	NetflixHistory    []*NetflixHistory
+	LastItemProcessed string
 }
 
 func NewHistory() *History {
 	return &History{
-		ItemsSearch: make(map[string]struct{}),
-		Items:       make([]string, 0, 20),
+		ItemsSearch:    make(map[string]struct{}),
+		Items:          make([]string, 0, 20),
+		NetflixHistory: []*NetflixHistory{},
 	}
 }
 
@@ -24,7 +27,7 @@ func (h *History) Has(item string) bool {
 	return ok
 }
 
-func (h *History) Push(item string) {
+func (h *History) Push(item string, r Reporter) {
 	if h.Has(item) {
 		return
 	}
@@ -36,6 +39,7 @@ func (h *History) Push(item string) {
 
 	h.Items = append(h.Items, item)
 	h.ItemsSearch[item] = struct{}{}
+	h.NetflixHistory = append(h.NetflixHistory, parseNetflixTitle(item, r))
 }
 
 func (h *History) Write() error {
@@ -43,7 +47,7 @@ func (h *History) Write() error {
 
 	data, err := json.Marshal(h)
 	if err != nil {
-		return fmt.Errorf("could not Marshal the data", err)
+		return fmt.Errorf("could not Marshal the data: %w", err)
 	}
 	return os.WriteFile(dataFilePath, data, 0o644)
 }
@@ -52,7 +56,18 @@ func (h *History) Load() error {
 	dataFilePath := filepath.Join(ConfigDir(), "history")
 	data, err := os.ReadFile(dataFilePath)
 	if err != nil {
-		return fmt.Errorf("could not read the file", err)
+		return fmt.Errorf("could not read the file: %w", err)
 	}
-	return json.Unmarshal(data, h)
+	err = json.Unmarshal(data, h)
+	if err != nil {
+		return fmt.Errorf("could not unmarshal the data: %w", err)
+	}
+	h.LastItemProcessed = h.Items[len(h.Items)-1]
+
+	return nil
+}
+
+func (h *History) ClearNetflixHistory() {
+	h.LastItemProcessed = h.Items[len(h.Items)-1]
+	h.NetflixHistory = []*NetflixHistory{}
 }

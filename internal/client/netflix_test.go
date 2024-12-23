@@ -11,10 +11,10 @@ import (
 )
 
 func TestExtractData(t *testing.T) {
-	c := New(nil)
+	c := New(nil, NewHistory())
 	data, err := os.ReadFile(filepath.Join("testdata", "netflix.html"))
 	require.NoError(t, err)
-	h, err := c.extractData(bytes.NewReader(data))
+	err = c.extractData(bytes.NewReader(data))
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -68,15 +68,95 @@ func TestExtractData(t *testing.T) {
 			isShow:  false,
 		},
 	}
-	require.Len(t, h, len(testCases))
+	require.Len(t, c.history.NetflixHistory, len(testCases))
 
 	for i, tc := range testCases {
 		i := i
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			h := c.history.NetflixHistory
 			assert.Equal(t, tc.episode, h[i].EpisodeName)
 			assert.Equal(t, tc.name, h[i].Title)
 			assert.Equal(t, tc.isShow, h[i].IsShow)
 		})
 	}
+
+	assert.Equal(t, c.history.LastItemProcessed, c.history.NetflixHistory[len(c.history.NetflixHistory)-1])
+}
+
+func TestExtractDataWithExistingData(t *testing.T) {
+	show1 := cleanupString(`Scott Pilgrim Takes Off: Scott Pilgrim Takes Off: "Whatever"`)
+	show2 := cleanupString(`Ali Wong: Hard Knock Wife`)
+	history := &History{
+		Items: []string{
+			show1,
+			show2,
+		},
+		ItemsSearch: map[string]struct{}{
+			show1: {},
+			show2: {},
+		},
+		LastItemProcessed: show2,
+	}
+	c := New(nil, history)
+	data, err := os.ReadFile(filepath.Join("testdata", "netflix.html"))
+	require.NoError(t, err)
+	err = c.extractData(bytes.NewReader(data))
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name    string
+		episode string
+		isShow  bool
+	}{
+		{
+			name:    "Slasher",
+			episode: "Soon Your Own Eyes Will See",
+			isShow:  true,
+		},
+		{
+			name:    "That '90s Show",
+			episode: "Friends in Low Places",
+			isShow:  true,
+		},
+		{
+			name:    "Squid Game: The Challenge",
+			episode: "Nowhere To Hide",
+			isShow:  true,
+		},
+		{
+			name:    "Alice in Borderland",
+			episode: "Episode 8",
+			isShow:  true,
+		},
+		{
+			name:    "Strong Girl Nam-soon",
+			episode: "Light and Shadow of Gangnam",
+			isShow:  true,
+		},
+		{
+			name:    "Goedam",
+			episode: "Threshold",
+			isShow:  true,
+		},
+		{
+			name:    "Pain Hustlers",
+			episode: "",
+			isShow:  false,
+		},
+	}
+	require.Len(t, c.history.NetflixHistory, len(testCases))
+
+	for i, tc := range testCases {
+		i := i
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			h := c.history.NetflixHistory
+			assert.Equal(t, tc.episode, h[i].EpisodeName)
+			assert.Equal(t, tc.name, h[i].Title)
+			assert.Equal(t, tc.isShow, h[i].IsShow)
+		})
+	}
+
+	assert.Equal(t, c.history.LastItemProcessed, show2)
 }
