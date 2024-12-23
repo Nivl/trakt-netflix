@@ -13,6 +13,10 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+type Reporter interface {
+	Report(msg string)
+}
+
 // NetflixConfig contains the configuration needed for Netflix
 type NetflixConfig struct {
 	AccountID string `env:"ACCOUNT_ID"`
@@ -53,12 +57,12 @@ var (
 )
 
 // FetchNetflixHistory returns the viewing history from Netflix
-func (c *Client) FetchNetflixHistory(cfg NetflixConfig, currentHistory *History) (history []*NetflixHistory, err error) {
+func (c *Client) FetchNetflixHistory(cfg NetflixConfig) error {
 	slog.Info("Checking for new watched medias on Netflix")
 	u := cfg.URL + "/" + cfg.AccountID
 	req, err := http.NewRequest(http.MethodGet, u, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("could not create request: %w", err)
+		return fmt.Errorf("could not create request: %w", err)
 	}
 	req.AddCookie(&http.Cookie{
 		Name:  "NetflixId",
@@ -67,7 +71,7 @@ func (c *Client) FetchNetflixHistory(cfg NetflixConfig, currentHistory *History)
 
 	res, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return fmt.Errorf("request failed: %w", err)
 	}
 	defer func() {
 		_, copyErr := io.Copy(io.Discard, res.Body)
@@ -80,96 +84,104 @@ func (c *Client) FetchNetflixHistory(cfg NetflixConfig, currentHistory *History)
 		}
 	}()
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request failed with status %d", res.StatusCode)
+		return fmt.Errorf("request failed with status %d", res.StatusCode)
 	}
 
-	return c.extractData(res.Body, currentHistory)
+	return c.extractData(res.Body)
 }
 
-func (c *Client) extractData(r io.Reader, currentHistory *History) (history []*NetflixHistory, err error) {
+func (c *Client) extractData(r io.Reader) error {
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't parse HTML: %w", err)
+		return fmt.Errorf("couldn't parse HTML: %w", err)
 	}
 
 	doc.Find(".retableRow").Each(func(_ int, s *goquery.Selection) {
-		title := s.Find(".title").Find("a").Text()
-		title = cleanupString(title)
-		if currentHistory.Has(title) {
-			return
-		}
-		currentHistory.Push(title)
+		c.processNetflixTitle(s.Find(".title").Find("a").Text())
+	})
 
-		h := &NetflixHistory{
-			Title:  title,
-			IsShow: netflixTitleDefaultRegex.MatchString(title),
-			Date:   s.Find(".date").Text(),
-		}
-		history = append(history, h)
+	return nil
+}
 
-		if !h.IsShow {
-			return
-		}
+func (c *Client) processNetflixTitle(title string) {
+	title = cleanupString(title)
+	if c.history.Has(title) {
+		return
+	}
+	c.history.Push(title, c)
+}
 
-		// Format is `<Show Name>: <Show Name>: "<Episode Name>"`
-		// This is the most common format
-		matches := netflixTitleDefaultRegex.FindAllStringSubmatch(title, -1)
-		if (len(matches) == 1 && len(matches[0]) == 4) && matches[0][1] == matches[0][2] {
-			h.Title = matches[0][1]
-			h.EpisodeName = matches[0][3]
-			return
-		}
+func parseNetflixTitle(title string, repporter Reporter) *NetflixHistory {
+	h := &NetflixHistory{
+		Title:  title,
+		IsShow: netflixTitleDefaultRegex.MatchString(title),
+	}
 
-		// Show with a colon in its name like "Squid Game: The Challenge".
-		// Format is `<Show: Name>: <Show: Name>: "<Episode Name>"`
-		matches = netflixTitleShowColonRegex.FindAllStringSubmatch(title, -1)
-		if (len(matches) == 1 && len(matches[0]) == 8) && matches[0][1] == matches[0][4] {
-			h.Title = matches[0][1]
-			h.EpisodeName = matches[0][7]
-			return
-		}
+	if !h.IsShow {
+		return h
+	}
 
-		// Weird edge case: `<Show Name>: Season <number>: "<Episode Name>"`
-		//                  `<Show Name>: Limited Series: "<Episode Name>"`
-		//                  `<Show Name>: Collection: "<Episode Name>"`
-		//                  `<Show Name>: Part <number>: "<Episode Name>"`
-		// Ex: Alice in Borderland: Season 2: "Episode 8"
-		// Ex: Strong Girl Nam-soon: Limited Series: "Forewarned Bloodbath"
-		// Ex: Goedam: Collection: "Birth"
-		// Ex: That '90s Show: Part 2: "Friends in Low Places"
-		matches = netflixTitleSeasonRegex.FindAllStringSubmatch(title, -1)
-		if len(matches) == 1 && len(matches[0]) == 9 {
-			h.Title = matches[0][1]
-			h.EpisodeName = matches[0][8]
-			return
-		}
+	// Format is `<Show Name>: <Show Name>: "<Episode Name>"`
+	// This is the most common format
+	matches := netflixTitleDefaultRegex.FindAllStringSubmatch(title, -1)
+	if (len(matches) == 1 && len(matches[0]) == 4) && matches[0][1] == matches[0][2] {
+		h.Title = matches[0][1]
+		h.EpisodeName = matches[0][3]
+		return h
+	}
 
-		// Now it gets complicated...
-		// Some shows have a subtitle as season name
-		// Ex. Slasher: The Executioner: "Soon Your Own Eyes Will See"
-		//
-		// It's also possible for a movie to have multiple colons in its name.
+	// Show with a colon in its name like "Squid Game: The Challenge".
+	// Format is `<Show: Name>: <Show: Name>: "<Episode Name>"`
+	matches = netflixTitleShowColonRegex.FindAllStringSubmatch(title, -1)
+	if (len(matches) == 1 && len(matches[0]) == 8) && matches[0][1] == matches[0][4] {
+		h.Title = matches[0][1]
+		h.EpisodeName = matches[0][7]
+		return h
+	}
 
-		// If there's only 2 colons we're going to assume it's a show
-		// and we'll drop the middle part
-		matches = netflixTitleDefaultRegex.FindAllStringSubmatch(title, -1)
-		if len(matches) == 1 && len(matches[0]) == 4 {
-			h.Title = matches[0][1]
-			h.EpisodeName = matches[0][3]
+	// Weird edge case: `<Show Name>: Season <number>: "<Episode Name>"`
+	//                  `<Show Name>: Limited Series: "<Episode Name>"`
+	//                  `<Show Name>: Collection: "<Episode Name>"`
+	//                  `<Show Name>: Part <number>: "<Episode Name>"`
+	// Ex: Alice in Borderland: Season 2: "Episode 8"
+	// Ex: Strong Girl Nam-soon: Limited Series: "Forewarned Bloodbath"
+	// Ex: Goedam: Collection: "Birth"
+	// Ex: That '90s Show: Part 2: "Friends in Low Places"
+	matches = netflixTitleSeasonRegex.FindAllStringSubmatch(title, -1)
+	if len(matches) == 1 && len(matches[0]) == 9 {
+		h.Title = matches[0][1]
+		h.EpisodeName = matches[0][8]
+		return h
+	}
 
-			c.Report(
+	// Now it gets complicated...
+	// Some shows have a subtitle as season name
+	// Ex. Slasher: The Executioner: "Soon Your Own Eyes Will See"
+	//
+	// It's also possible for a movie to have multiple colons in its name.
+
+	// If there's only 2 colons we're going to assume it's a show
+	// and we'll drop the middle part
+	matches = netflixTitleDefaultRegex.FindAllStringSubmatch(title, -1)
+	if len(matches) == 1 && len(matches[0]) == 4 {
+		h.Title = matches[0][1]
+		h.EpisodeName = matches[0][3]
+
+		if repporter != nil {
+			repporter.Report(
 				fmt.Sprintf("Potentially weird title found: %s. Assuming it's a show named '%s' with an episode named '%s'",
 					title, h.Title, h.EpisodeName,
 				))
-
-			return
 		}
 
-		c.Report(fmt.Sprintf("Potentially weird title found: %s. Assuming it's a movie.", title))
-		h.IsShow = false
-	})
+		return h
+	}
 
-	return history, nil
+	if repporter != nil {
+		repporter.Report(fmt.Sprintf("Potentially weird title found: %s. Assuming it's a movie.", title))
+	}
+	h.IsShow = false
+	return h
 }
 
 func cleanupString(s string) string {

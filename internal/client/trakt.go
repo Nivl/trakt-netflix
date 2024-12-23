@@ -6,8 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -21,17 +19,16 @@ type TraktConfig struct {
 }
 
 // MarkAsWatched mark as watched all the provided media
-func (c *Client) MarkAsWatched(conf TraktConfig, history []*NetflixHistory) {
+func (c *Client) MarkAsWatched(conf TraktConfig) {
 	cfg := &conf
-	dataFilePath := filepath.Join(ConfigDir(), "data")
-	lastImportedRaw, err := os.ReadFile(dataFilePath)
-	if err != nil {
-		slog.Warn("could not read last imported file", "error", err.Error())
-	}
-	lastImported := strings.TrimSpace(strings.Trim(string(lastImportedRaw), "\n"))
 
-	for _, h := range history {
-		if h.String() == lastImported {
+	isNew := false
+	for _, h := range c.history.NetflixHistory {
+		if !isNew {
+			break
+		}
+		if h.String() == c.history.LastItemProcessed {
+			isNew = true
 			break
 		}
 
@@ -53,16 +50,11 @@ func (c *Client) MarkAsWatched(conf TraktConfig, history []*NetflixHistory) {
 		c.Report("Trakt: Watched " + h.String())
 		time.Sleep(500 * time.Millisecond)
 	}
-
-	err = os.WriteFile(dataFilePath, []byte(history[0].String()), 0o644)
-	if err != nil {
-		c.Report(fmt.Sprintf(`Trakt Couldn't update DB with %q. Error: %s`+history[0].String(), err.Error()))
-		slog.Error("could not write last imported file", "error", err.Error())
-	}
+	c.history.ClearNetflixHistory()
 }
 
 // watch builds and sends the http request that marks a media as watched
-func (c *Client) watch(cfg *TraktConfig, h *NetflixHistory, u, id string) (err error) {
+func (c *Client) watch(cfg *TraktConfig, h *NetflixHistory, u, id string) error {
 	mediaType := "movie"
 	if h.IsShow {
 		mediaType = "episode"
