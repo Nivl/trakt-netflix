@@ -8,17 +8,16 @@ import (
 )
 
 type History struct {
-	ItemsSearch       map[string]struct{} `json:"search"`
-	Items             []string            `json:"items"`
-	NetflixHistory    []*NetflixHistory
-	LastItemProcessed string
+	ItemsSearch map[string]struct{} `json:"search"`
+	Items       []string            `json:"items"`
+	ToProcess   []*NetflixHistory   `json:"-"`
 }
 
 func NewHistory() *History {
 	return &History{
-		ItemsSearch:    make(map[string]struct{}),
-		Items:          make([]string, 0, 20),
-		NetflixHistory: []*NetflixHistory{},
+		ItemsSearch: make(map[string]struct{}),
+		Items:       make([]string, 0, 20),
+		ToProcess:   []*NetflixHistory{},
 	}
 }
 
@@ -39,7 +38,7 @@ func (h *History) Push(item string, r Reporter) {
 
 	h.Items = append(h.Items, item)
 	h.ItemsSearch[item] = struct{}{}
-	h.NetflixHistory = append(h.NetflixHistory, parseNetflixTitle(item, r))
+	h.ToProcess = append(h.ToProcess, parseNetflixTitle(item, r))
 }
 
 func (h *History) Write() error {
@@ -62,12 +61,10 @@ func (h *History) Load() error {
 	if err != nil {
 		return fmt.Errorf("could not unmarshal the data: %w", err)
 	}
-	h.LastItemProcessed = h.Items[len(h.Items)-1]
 
 	return nil
 }
 
 func (h *History) ClearNetflixHistory() {
-	h.LastItemProcessed = h.Items[len(h.Items)-1]
-	h.NetflixHistory = []*NetflixHistory{}
+	h.ToProcess = []*NetflixHistory{}
 }

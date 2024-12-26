@@ -68,20 +68,18 @@ func TestExtractData(t *testing.T) {
 			isShow:  false,
 		},
 	}
-	require.Len(t, c.history.NetflixHistory, len(testCases))
+	require.Len(t, c.history.ToProcess, len(testCases))
 
 	for i, tc := range testCases {
 		i := i
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			h := c.history.NetflixHistory
+			h := c.history.ToProcess
 			assert.Equal(t, tc.episode, h[i].EpisodeName)
 			assert.Equal(t, tc.name, h[i].Title)
 			assert.Equal(t, tc.isShow, h[i].IsShow)
 		})
 	}
-
-	assert.Equal(t, c.history.LastItemProcessed, c.history.NetflixHistory[len(c.history.NetflixHistory)-1])
 }
 
 func TestExtractDataWithExistingData(t *testing.T) {
@@ -96,7 +94,6 @@ func TestExtractDataWithExistingData(t *testing.T) {
 			show1: {},
 			show2: {},
 		},
-		LastItemProcessed: show2,
 	}
 	c := New(nil, history)
 	data, err := os.ReadFile(filepath.Join("testdata", "netflix.html"))
@@ -145,18 +142,16 @@ func TestExtractDataWithExistingData(t *testing.T) {
 			isShow:  false,
 		},
 	}
-	require.Len(t, c.history.NetflixHistory, len(testCases))
+	require.Len(t, c.history.ToProcess, len(testCases))
 
 	for i, tc := range testCases {
 		i := i
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			h := c.history.NetflixHistory
+			h := c.history.ToProcess
 			assert.Equal(t, tc.episode, h[i].EpisodeName)
 			assert.Equal(t, tc.name, h[i].Title)
 			assert.Equal(t, tc.isShow, h[i].IsShow)
 		})
 	}
-
-	assert.Equal(t, c.history.LastItemProcessed, show2)
 }

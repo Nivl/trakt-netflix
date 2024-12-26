@@ -22,16 +22,7 @@ type TraktConfig struct {
 func (c *Client) MarkAsWatched(conf TraktConfig) {
 	cfg := &conf
 
-	isNew := false
-	for _, h := range c.history.NetflixHistory {
-		if !isNew {
-			break
-		}
-		if h.String() == c.history.LastItemProcessed {
-			isNew = true
-			break
-		}
-
+	for _, h := range c.history.ToProcess {
 		u, id, err := c.searchMedia(cfg, h)
 		if err != nil {
 			c.Report("Trakt: Couldn't find: " + h.String() + ". Error: " + err.Error())
