@@ -18,54 +18,64 @@ func TestExtractData(t *testing.T) {
 	require.NoError(t, err)
 
 	testCases := []struct {
+		entry   string
 		name    string
 		episode string
 		isShow  bool
 	}{
 		{
-			name:    "Slasher",
-			episode: "Soon Your Own Eyes Will See",
-			isShow:  true,
-		},
-		{
-			name:    "That '90s Show",
-			episode: "Friends in Low Places",
-			isShow:  true,
-		},
-		{
-			name:    "Squid Game: The Challenge",
-			episode: "Nowhere To Hide",
-			isShow:  true,
-		},
-		{
-			name:    "Alice in Borderland",
-			episode: "Episode 8",
-			isShow:  true,
-		},
-		{
-			name:    "Strong Girl Nam-soon",
-			episode: "Light and Shadow of Gangnam",
-			isShow:  true,
-		},
-		{
-			name:    "Goedam",
-			episode: "Threshold",
-			isShow:  true,
-		},
-		{
-			name:    "Pain Hustlers",
+			entry:   `Ali Wong: Hard Knock Wife`,
+			name:    "Ali Wong: Hard Knock Wife",
 			episode: "",
 			isShow:  false,
 		},
 		{
+			entry:   `Scott Pilgrim Takes Off: Scott Pilgrim Takes Off: "Whatever"`,
 			name:    "Scott Pilgrim Takes Off",
 			episode: "Whatever",
 			isShow:  true,
 		},
 		{
-			name:    "Ali Wong: Hard Knock Wife",
+			entry:   `Pain Hustlers`,
+			name:    "Pain Hustlers",
 			episode: "",
 			isShow:  false,
+		},
+		{
+			entry:   `Goedam: Collection: "Threshold"`,
+			name:    "Goedam",
+			episode: "Threshold",
+			isShow:  true,
+		},
+		{
+			entry:   `Strong Girl Nam-soon: Limited Series: "Light and Shadow of Gangnam"`,
+			name:    "Strong Girl Nam-soon",
+			episode: "Light and Shadow of Gangnam",
+			isShow:  true,
+		},
+		{
+			entry:   `Alice in Borderland: Season 2: "Episode 8"`,
+			name:    "Alice in Borderland",
+			episode: "Episode 8",
+			isShow:  true,
+		},
+		{
+			entry:   `Squid Game: The Challenge: Squid Game: The Challenge: "Nowhere To Hide"`,
+			name:    "Squid Game: The Challenge",
+			episode: "Nowhere To Hide",
+			isShow:  true,
+		},
+		{
+			entry:   `That '90s Show: Part 2: "Friends in Low Places"`,
+			name:    "That '90s Show",
+			episode: "Friends in Low Places",
+			isShow:  true,
+		},
+		{
+			entry:   `Slasher: The Executioner: "Soon Your Own Eyes Will See"`,
+			name:    "Slasher",
+			episode: "Soon Your Own Eyes Will See",
+			isShow:  true,
 		},
 	}
 	require.Len(t, c.history.ToProcess, len(testCases))
@@ -78,6 +88,9 @@ func TestExtractData(t *testing.T) {
 			assert.Equal(t, tc.episode, h[i].EpisodeName)
 			assert.Equal(t, tc.name, h[i].Title)
 			assert.Equal(t, tc.isShow, h[i].IsShow)
+
+			item := c.history.Items
+			assert.Equal(t, tc.entry, item[i])
 		})
 	}
 }
@@ -102,44 +115,52 @@ func TestExtractDataWithExistingData(t *testing.T) {
 	require.NoError(t, err)
 
 	testCases := []struct {
+		entry   string
 		name    string
 		episode string
 		isShow  bool
 	}{
 		{
-			name:    "Slasher",
-			episode: "Soon Your Own Eyes Will See",
-			isShow:  true,
+			entry:   `Pain Hustlers`,
+			name:    "Pain Hustlers",
+			episode: "",
+			isShow:  false,
 		},
 		{
-			name:    "That '90s Show",
-			episode: "Friends in Low Places",
-			isShow:  true,
-		},
-		{
-			name:    "Squid Game: The Challenge",
-			episode: "Nowhere To Hide",
-			isShow:  true,
-		},
-		{
-			name:    "Alice in Borderland",
-			episode: "Episode 8",
-			isShow:  true,
-		},
-		{
-			name:    "Strong Girl Nam-soon",
-			episode: "Light and Shadow of Gangnam",
-			isShow:  true,
-		},
-		{
+			entry:   `Goedam: Collection: "Threshold"`,
 			name:    "Goedam",
 			episode: "Threshold",
 			isShow:  true,
 		},
 		{
-			name:    "Pain Hustlers",
-			episode: "",
-			isShow:  false,
+			entry:   `Strong Girl Nam-soon: Limited Series: "Light and Shadow of Gangnam"`,
+			name:    "Strong Girl Nam-soon",
+			episode: "Light and Shadow of Gangnam",
+			isShow:  true,
+		},
+		{
+			entry:   `Alice in Borderland: Season 2: "Episode 8"`,
+			name:    "Alice in Borderland",
+			episode: "Episode 8",
+			isShow:  true,
+		},
+		{
+			entry:   `Squid Game: The Challenge: Squid Game: The Challenge: "Nowhere To Hide"`,
+			name:    "Squid Game: The Challenge",
+			episode: "Nowhere To Hide",
+			isShow:  true,
+		},
+		{
+			entry:   `That '90s Show: Part 2: "Friends in Low Places"`,
+			name:    "That '90s Show",
+			episode: "Friends in Low Places",
+			isShow:  true,
+		},
+		{
+			entry:   `Slasher: The Executioner: "Soon Your Own Eyes Will See"`,
+			name:    "Slasher",
+			episode: "Soon Your Own Eyes Will See",
+			isShow:  true,
 		},
 	}
 	require.Len(t, c.history.ToProcess, len(testCases))

@@ -16,7 +16,6 @@ type History struct {
 func NewHistory() *History {
 	return &History{
 		ItemsSearch: make(map[string]struct{}),
-		Items:       make([]string, 0, 20),
 		ToProcess:   []*NetflixHistory{},
 	}
 }
@@ -31,7 +30,7 @@ func (h *History) Push(item string, r Reporter) {
 		return
 	}
 
-	if len(h.Items) >= 20 {
+	if len(h.Items) >= NetfliHistorySize {
 		delete(h.ItemsSearch, h.Items[0])
 		h.Items = h.Items[1:]
 	}
@@ -61,7 +60,6 @@ func (h *History) Load() error {
 	if err != nil {
 		return fmt.Errorf("could not unmarshal the data: %w", err)
 	}
-
 	return nil
 }
 

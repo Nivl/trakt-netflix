@@ -7,11 +7,14 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
 	"github.com/PuerkitoBio/goquery"
 )
+
+const NetfliHistorySize = 20
 
 type Reporter interface {
 	Report(msg string)
@@ -96,18 +99,22 @@ func (c *Client) extractData(r io.Reader) error {
 		return fmt.Errorf("couldn't parse HTML: %w", err)
 	}
 
-	doc.Find(".retableRow").Each(func(_ int, s *goquery.Selection) {
-		c.processNetflixTitle(s.Find(".title").Find("a").Text())
-	})
+	newList := make([]string, 0, NetfliHistorySize)
+	for _, s := range doc.Find(".retableRow").EachIter() {
+		newList = append(newList, s.Find(".title").Find("a").Text())
+	}
 
+	// we reverse the list to have the oldest entries first, and
+	// newest last
+	slices.Reverse(newList)
+	for _, title := range newList {
+		c.processNetflixTitle(title)
+	}
 	return nil
 }
 
 func (c *Client) processNetflixTitle(title string) {
 	title = cleanupString(title)
-	if c.history.Has(title) {
-		return
-	}
 	c.history.Push(title, c)
 }
 
