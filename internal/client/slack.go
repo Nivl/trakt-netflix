@@ -17,7 +17,7 @@ func (c *Client) Report(msg string) {
 		}
 		err := slack.Send(wh, "", payload)
 		if len(err) > 0 {
-			slog.Error("failed sending slack messages", "error", err)
+			slog.Error("failed sending slack message", "error", err, "webhookURL", wh)
 		}
 	}
 }
