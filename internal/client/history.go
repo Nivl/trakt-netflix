@@ -29,6 +29,7 @@ func (h *History) Push(item string, r Reporter) {
 	if h.Has(item) {
 		return
 	}
+	fmt.Println("Pushing " + item)
 
 	if len(h.Items) >= NetfliHistorySize {
 		delete(h.ItemsSearch, h.Items[0])

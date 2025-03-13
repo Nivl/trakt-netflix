@@ -3,7 +3,6 @@ package client
 import (
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -20,25 +19,27 @@ type TraktConfig struct {
 
 // MarkAsWatched mark as watched all the provided media
 func (c *Client) MarkAsWatched(conf TraktConfig) {
-	cfg := &conf
+	// cfg := &conf
 
 	for _, h := range c.history.ToProcess {
-		u, id, err := c.searchMedia(cfg, h)
-		if err != nil {
-			c.Report("Trakt: Couldn't find: " + h.String() + ". Error: " + err.Error())
-			slog.Error("failed to search", "media", h.String(), "error", err.Error())
-			continue
-		}
+		fmt.Println("Trakt: Watched " + h.String())
 
-		time.Sleep(500 * time.Millisecond)
-		err = c.watch(cfg, h, u, id)
-		if err != nil {
-			c.Report("Trakt: Couldn't mark as watched: " + h.String() + ". Error: " + err.Error())
-			slog.Error("failed to watch", "media", h.String(), "error", err.Error())
-			continue
-		}
+		// u, id, err := c.searchMedia(cfg, h)
+		// if err != nil {
+		// 	c.Report("Trakt: Couldn't find: " + h.String() + ". Error: " + err.Error())
+		// 	slog.Error("failed to search", "media", h.String(), "error", err.Error())
+		// 	continue
+		// }
 
-		c.Report("Trakt: Watched " + h.String())
+		// time.Sleep(500 * time.Millisecond)
+		// err = c.watch(cfg, h, u, id)
+		// if err != nil {
+		// 	c.Report("Trakt: Couldn't mark as watched: " + h.String() + ". Error: " + err.Error())
+		// 	slog.Error("failed to watch", "media", h.String(), "error", err.Error())
+		// 	continue
+		// }
+
+		// c.Report("Trakt: Watched " + h.String())
 		time.Sleep(500 * time.Millisecond)
 	}
 	c.history.ClearNetflixHistory()

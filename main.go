@@ -41,7 +41,7 @@ func run() (err error) {
 	slog.Info("Trakt info: starting")
 
 	crn := cron.New()
-	err = crn.AddFunc("@hourly", func() { process(&cfg, c, history) })
+	err = crn.AddFunc("0 * * * * *", func() { process(&cfg, c, history) })
 	if err != nil {
 		return fmt.Errorf("could not setup cron: %w", err)
 	}
