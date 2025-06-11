@@ -16,6 +16,7 @@ type appConfig struct {
 	Netflix       client.NetflixConfig `env:",prefix=NETFLIX_"`
 	Trakt         client.TraktConfig   `env:",prefix=TRAKT_"`
 	SlackWebhooks []string             `env:"SLACK_WEBHOOKS"`
+	CronSpecs     string               `env:"CRON_SPECS,default=@hourly"`
 }
 
 func main() {
@@ -41,7 +42,7 @@ func run() (err error) {
 	slog.Info("Trakt info: starting")
 
 	crn := cron.New()
-	err = crn.AddFunc("@hourly", func() { process(&cfg, c, history) })
+	err = crn.AddFunc(cfg.CronSpecs, func() { process(&cfg, c, history) })
 	if err != nil {
 		return fmt.Errorf("could not setup cron: %w", err)
 	}
