@@ -1,4 +1,4 @@
-name: main
+name: backend
 
 on:
   push:
@@ -6,6 +6,10 @@ on:
 
   pull_request:
     branches: [ main ]
+
+defaults:
+  run:
+    working-directory: backend
 
 env:
   REGISTRY: ghcr.io
@@ -15,12 +19,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Get Go version
         id: gover
         run: echo "::set-output name=value::^$(grep 'go 1.' go.mod | cut -d ' ' -f 2)"
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.gover.outputs.value }}
 
@@ -31,12 +35,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get Go version
         id: gover
-        run: echo "::set-output name=value::^$(grep 'go 1.' go.mod | cut -d ' ' -f 2)"
-      - uses: actions/setup-go@v2
+        run: echo "value=^$(grep 'go 1.' go.mod | cut -d ' ' -f 2)" >> $GITHUB_OUTPUT
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.gover.outputs.value }}
 
@@ -44,11 +48,28 @@ jobs:
           go mod tidy
           git diff --exit-code
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Go version
+        id: gover
+        run: echo "value=^$(grep 'go 1.' go.mod | cut -d ' ' -f 2)" >> $GITHUB_OUTPUT
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ steps.gover.outputs.value }}
+
+      - run: |
+          go test ./...
+
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
       - build
       - lint
+      - test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -56,7 +77,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -75,13 +96,12 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=sha
-            type=ref,event=branch
             type=raw,value=latest
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ./backend
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
