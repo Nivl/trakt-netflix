@@ -48,11 +48,28 @@ jobs:
           go mod tidy
           git diff --exit-code
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Go version
+        id: gover
+        run: echo "value=^$(grep 'go 1.' go.mod | cut -d ' ' -f 2)" >> $GITHUB_OUTPUT
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ steps.gover.outputs.value }}
+
+      - run: |
+          go test ./...
+
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
       - build
       - lint
+      - test
     runs-on: ubuntu-latest
     permissions:
       contents: read
