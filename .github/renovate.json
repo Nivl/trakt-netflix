@@ -1,0 +1,6 @@
+{
+  "extends": [
+    "github>Nivl/configs:renovate"
+  ],
+  "automerge": true
+}

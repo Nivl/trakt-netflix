@@ -1,0 +1,15 @@
+titleOnly: true
+types:
+  - build # Changes that affect the build system or external dependencies (pnpm, go mod, typescripts, next, ...)
+  - ci # Changes to our CI configuration files and scripts (github actions, renovate, ...)
+  - content # Change to the content (text, images, ...) of the website
+  - dev # Changes to the dev environment (.vscode, .editorconfig, ...)
+  - docs # Documentation only changes
+  - feat # A new feature
+  - fix # A bug fix
+  - infra # Change to the infra (k8s, fly, ...)
+  - perf # A code change that improves performance
+  - refactor # A code change that neither fixes a bug nor adds a feature (no effect on the user)
+  - security # Changes that affect the security of the project (vulnerabilities, secrets, ...)
+  - test # Adding missing tests or correcting existing tests
+  - uix # Changes to the UI that is neither a new feature or a bug fix (impacts the user visually)
