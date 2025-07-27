@@ -3,9 +3,11 @@ name: backend
 on:
   push:
     branches: [ main, ml/docker ]
-
   pull_request:
     branches: [ main ]
+
+permissions:
+  contents: read
 
 defaults:
   run:
