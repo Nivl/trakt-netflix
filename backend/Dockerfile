@@ -8,7 +8,7 @@ RUN update-ca-certificates
 
 # Build the binary
 COPY . /build
-RUN cd /build && GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /app .
+RUN cd /build && GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /app github.com/Nivl/trakt-netflix/cmd/service
 
 # Create the final image
 FROM scratch

@@ -46,9 +46,7 @@ func (h *NetflixHistory) String() string {
 func (h *NetflixHistory) SearchQuery() string {
 	query := h.Title
 	if h.IsShow {
-		// for some reasons, wrapping the title and the episode name in quotes
-		// returns better search results
-		query = fmt.Sprintf("%q: %q", h.Title, h.EpisodeName)
+		query = fmt.Sprintf("%s %s", h.Title, h.EpisodeName)
 	}
 	return url.QueryEscape(query)
 }

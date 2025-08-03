@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/Nivl/trakt-netflix/internal/pathutil"
 )
 
 type History struct {
@@ -41,7 +43,7 @@ func (h *History) Push(item string, r Reporter) {
 }
 
 func (h *History) Write() error {
-	dataFilePath := filepath.Join(ConfigDir(), "history")
+	dataFilePath := filepath.Join(pathutil.ConfigDir(), "history")
 
 	data, err := json.Marshal(h)
 	if err != nil {
@@ -51,7 +53,10 @@ func (h *History) Write() error {
 }
 
 func (h *History) Load() error {
-	dataFilePath := filepath.Join(ConfigDir(), "history")
+	dataFilePath := filepath.Join(pathutil.ConfigDir(), "history")
+
+	// TODO(melvin): Use something more secure than ReadFile, to avoid
+	// loading a huge file in memory.
 	data, err := os.ReadFile(dataFilePath)
 	if err != nil {
 		return fmt.Errorf("could not read the file: %w", err)

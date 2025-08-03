@@ -1,151 +1,111 @@
 package client
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
+	"unicode"
 
-	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
+
+	"github.com/Nivl/trakt-netflix/internal/trakt"
 )
 
-// TraktConfig contains the configuration needed for Netflix
-type TraktConfig struct {
-	CSRF   string `env:"CSRF,required"`
-	Cookie string `env:"COOKIE,required"`
-}
+var stringNormalizer = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 
 // MarkAsWatched mark as watched all the provided media
-func (c *Client) MarkAsWatched(conf TraktConfig) {
-	cfg := &conf
-
+func (c *Client) MarkAsWatched(ctx context.Context) {
+	medias := &trakt.MarkAsWatchedRequest{}
 	for _, h := range c.history.ToProcess {
-		u, id, err := c.searchMedia(cfg, h)
+		err := c.searchMedia(ctx, h, medias)
 		if err != nil {
-			c.Report("Trakt: Couldn't find: " + h.String() + ". Error: " + err.Error())
-			slog.Error("failed to search", "media", h.String(), "error", err.Error())
+			c.Report("Trakt: Couldn't find: " + h.String() + ".\nError: " + err.Error() + "\nPlease add manually.")
+			slog.Error("media search failed", "isShow", h.IsShow, "media", h.String(), "error", err.Error())
 			continue
 		}
+		c.Report("Adding to current watchlist batch: " + h.String())
 
-		time.Sleep(500 * time.Millisecond)
-		err = c.watch(cfg, h, u, id)
-		if err != nil {
-			c.Report("Trakt: Couldn't mark as watched: " + h.String() + ". Error: " + err.Error())
-			slog.Error("failed to watch", "media", h.String(), "error", err.Error())
-			continue
-		}
-
-		c.Report("Trakt: Watched " + h.String())
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
+
+	_, err := c.traktClient.MarkAsWatched(ctx, medias)
+	if err != nil {
+		c.Report("Trakt: Couldn't mark the batch as watched. Error: " + err.Error())
+		slog.Error("failed to watch", "error", err.Error(), "medias", medias)
+		return
+	}
+	c.Report("Batch processed successfully")
 	c.history.ClearNetflixHistory()
 }
 
-// watch builds and sends the http request that marks a media as watched
-func (c *Client) watch(cfg *TraktConfig, h *NetflixHistory, u, id string) error {
-	mediaType := "movie"
+// searchMedia tries to map a Netflix movie/episode to one on Trakt
+func (c *Client) searchMedia(ctx context.Context, h *NetflixHistory, medias *trakt.MarkAsWatchedRequest) error {
+	now := time.Now().Format(time.RFC3339)
+
+	typ := trakt.SearchTypeMovie
 	if h.IsShow {
-		mediaType = "episode"
+		typ = trakt.SearchTypeEpisode
 	}
-	data := url.Values{}
-	data.Set("trakt_id", id)
-	data.Set("type", mediaType)
-	data.Set("watched_at", "now")
-	data.Set("collected_at", "now")
-	data.Set("rewatching", "false")
-	data.Set("force", "false")
 
-	req, err := http.NewRequest(http.MethodPost, u, strings.NewReader(data.Encode()))
+	response, err := c.traktClient.Search(ctx, typ, h.SearchQuery())
 	if err != nil {
-		return fmt.Errorf("could not create request: %w", err)
+		return fmt.Errorf("searching for %s: %w", h.SearchQuery(), err)
 	}
-	req.AddCookie(&http.Cookie{
-		Name:  "_traktsession",
-		Value: cfg.Cookie,
-	})
-	req.Header.Add("x-csrf-token", cfg.CSRF)
 
-	res, err := c.http.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer func() {
-		_, copyErr := io.Copy(io.Discard, res.Body)
-		CloseErr := res.Body.Close()
-		if err == nil {
-			err = copyErr
-			if err == nil {
-				err = CloseErr
+	for _, r := range response.Results {
+		if r.Type == trakt.SearchTypeMovie {
+			if stringMatches(r.Movie.Title, h.Title) {
+				medias.Movies = append(medias.Movies, trakt.MarkAsWatched{
+					IDs:       r.Movie.IDs,
+					WatchedAt: now,
+				})
+				return nil
 			}
+			continue
 		}
-	}()
 
-	if res.StatusCode != http.StatusCreated {
-		return fmt.Errorf("request failed with status %d", res.StatusCode)
+		if r.Type == trakt.SearchTypeEpisode {
+			if stringMatches(r.Show.Title, h.Title) && stringMatches(r.Episode.Title, h.EpisodeName) {
+				medias.Episodes = append(medias.Episodes, trakt.MarkAsWatched{
+					IDs:       r.Episode.IDs,
+					WatchedAt: now,
+				})
+				return nil
+			}
+			continue
+		}
 	}
-
-	return nil
+	return fmt.Errorf("not found")
 }
 
-// searchMedia tries to map a Netflix movie/episode to one on Trakt
-func (c *Client) searchMedia(cfg *TraktConfig, h *NetflixHistory) (watchURL, id string, err error) {
-	var u string
-	switch h.IsShow {
-	case true:
-		u = fmt.Sprintf("https://trakt.tv/search/episodes/?query=%s", h.SearchQuery())
-	default:
-		u = fmt.Sprintf("https://trakt.tv/search/movies/?query=%s", h.SearchQuery())
+// Sometime the title don't match due to unicode characters.
+// For example,
+// On Netflix: "Arrested Development: Beef Consomme"
+// On Trakt: "Arrested Development: Beef Consommé"
+//
+// So on top of regular title search, we also normalize the titles
+// to remove accents and diacritics.
+//
+// Netflix and Trakt may also use different cases for the same title.
+// For example,
+// On Netflix: "Arrested Development: Justice is Blind"
+// On Trakt: "Arrested Development: Justice Is Blind"
+func stringMatches(a, b string) bool {
+	if strings.EqualFold(a, b) {
+		return true
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u, http.NoBody)
+	normalizedA, _, err := transform.String(stringNormalizer, a)
 	if err != nil {
-		return "", "", fmt.Errorf("could not create request: %w", err)
+		return false
 	}
-	req.AddCookie(&http.Cookie{
-		Name:  "_traktsession",
-		Value: cfg.Cookie,
-	})
-	req.Header.Add("x-csrf-token", cfg.CSRF)
-
-	res, err := c.http.Do(req)
+	normalizedB, _, err := transform.String(stringNormalizer, b)
 	if err != nil {
-		return "", "", fmt.Errorf("request failed: %w", err)
+		return false
 	}
-
-	defer func() {
-		_, copyErr := io.Copy(io.Discard, res.Body)
-		CloseErr := res.Body.Close()
-		if err == nil {
-			err = copyErr
-			if err == nil {
-				err = CloseErr
-			}
-		}
-	}()
-
-	if res.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("request failed with status %d", res.StatusCode)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(res.Body)
-	if err != nil {
-		return "", "", fmt.Errorf("couldn't parse HTML: %w", err)
-	}
-
-	s := doc.Find(".grid-item").First()
-	dataURL, ok := s.Attr("data-url")
-	if !ok {
-		return "", "", fmt.Errorf("no data-url found")
-	}
-	dataID, ok := s.Attr("data-episode-id")
-	if !ok {
-		dataID, ok = s.Attr("data-movie-id")
-		if !ok {
-			return "", "", fmt.Errorf("no data-episode-id nor data-movie-id")
-		}
-	}
-	return "https://trakt.tv" + dataURL + "/watch", dataID, nil
+	return strings.EqualFold(normalizedA, normalizedB)
 }

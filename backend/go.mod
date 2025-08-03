@@ -8,6 +8,7 @@ require (
 	github.com/robfig/cron v1.2.0
 	github.com/sethvargo/go-envconfig v1.3.0
 	github.com/stretchr/testify v1.10.0
+	golang.org/x/text v0.27.0
 )
 
 require (
