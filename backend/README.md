@@ -1,21 +1,34 @@
 # Trakt-netflix
 
-Hacky program to sync Netlfix with Trakt.
+Tool to sync Netlfix with Trakt.
 
 ## Usage
 
 This is meant to be run as a cron job.
 
-On the first run, the script will mark as watched the last 20 movies/episodes you watched on Netflix. To avoid that, you can create a file named `data` at the root of the project / next to the binary, and put the last thing you watched in it. For a movie, just add the name of the movie in it much like it is on [Netflix's watchlist](https://www.netflix.com/settings/viewed) `<movie name>`. If it's a show, the format is `<show name>: <episode name>`. For example `The Stranded: The gate`. Unlike the list on netflix, there are no double-quotes around the episode name, and the name of the show is only marked once.
+On the first run, the script will mark as watched the last 20 movies/episodes you watched on Netflix.
 
 ### Environment variables
 | ENV | Required | Format | Info |
 | --- | --- | --- | --- |
 | NETFLIX_COOKIE | required |  | Value of the `NetflixId` cookie |
 | NETFLIX_ACCOUNT_ID | optional |  | Can be found everywhere in the local storage, usually in a `MDX_*` object. If not set, it will use the last account used with the provided cookie. |
-| TRAKT_COOKIE | required |  | Value of the `_traktsession` cookie |
-| TRAKT_CSRF | required | | Value of the `x-csrf-token` token. You can get it by opening the Network tab in Chrome, triggering Trakt private API, and looking at the headers of a request such as `episodes.json`. `X-Csrf-Token` should be at the bottom of the headers list. You can trigger their API by adding an item to your watchlist by clicking on Add To List on a poster, after doing so you'll see a `watchlist` request in the requests list. [Click here](https://trakt.tv/search/movies/?query=lord+of+the+ring) for quick access to a list of movies to add to your watchlist.
+| TRAKT_REDIRECT_URI | required |  | Value of redirect URL of your trakt app, it won't be used but we still need to provide it to trakt. You can use http://localhost |
+| TRAKT_CLIENT_ID | required |  | Client ID of your trakt app |
+| TRAKT_CLIENT_SECRET | required | | Client Secret of your trakt app |
 | SLACK_WEBHOOKS | optional | webhook1,webhook2 | |
+
+###  Getting Started
+
+You first need to create a Trakt app at https://trakt.tv/oauth/applications/new. There isn't really a way out of it, trying to parse the website directly causes *a ton* of mismatches.
+
+You then need to create an auth file by running the cmd/auth command:
+
+```bash
+TRAKT_CLIENT_ID=xxx TRAKT_CLIENT_SECRET=yyy TRAKT_REDIRECT_URI=xxx go run github.com/Nivl/trakt-netflix/cmd/auth
+```
+
+This will create a `trakt_auth.json` file in the current directory.
 
 ### setup with Docker Compose
 
@@ -26,11 +39,14 @@ services:
     image: ghcr.io/nivl/trakt-netflix
     container_name: "trakt-netflix"
     environment:
-    - TRAKT_CSRF=xxx
-    - TRAKT_COOKIE=yyy
+    - TRAKT_CLIENT_ID=xxx
+    - TRAKT_CLIENT_SECRET=yyy
+    - TRAKT_REDIRECT_URI=http://localhost
     - NETFLIX_ACCOUNT_ID=zzz
     - NETFLIX_COOKIE=aaa
     - SLACK_WEBHOOKS=bbb
     volumes:
       - /path/to/config:/config
 ```
+
+Make sure that `trakt_auth.json` is in the `/path/to/config` directory.
