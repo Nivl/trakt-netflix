@@ -2,7 +2,7 @@ bin/
 .env
 data*
 docker-compose.yml
-backend/trakt-netflix
-backend/history
-backend/trakt_auth.json
-backend/.task/
+trakt-netflix
+history
+trakt_auth.json
+.task/
