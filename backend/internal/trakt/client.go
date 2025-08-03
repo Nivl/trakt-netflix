@@ -269,7 +269,7 @@ func (c *Client) GetAccessToken(ctx context.Context, deviceCode string) (*GetAcc
 		DeviceCode:   deviceCode,
 	}, withNoAuth())
 	if err != nil {
-		return nil, fmt.Errorf("generate auth code: %w", err)
+		return nil, fmt.Errorf("get access token: %w", err)
 	}
 
 	if resp.StatusCode == http.StatusBadRequest {
@@ -321,7 +321,7 @@ func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*Refres
 		RefreshToken: refreshToken,
 	}, withNoAuth(), withNoRetryOnAuthFailure())
 	if err != nil {
-		return nil, fmt.Errorf("generate auth code: %w", err)
+		return nil, fmt.Errorf("refresh token: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -357,7 +357,7 @@ func (c *Client) Search(ctx context.Context, typ SearchTypes, query string) (*Se
 
 	resp, body, err := c.get(ctx, url, withNoAuth())
 	if err != nil {
-		return nil, fmt.Errorf("generate auth code: %w", err)
+		return nil, fmt.Errorf("search: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -396,7 +396,7 @@ type MarkAsWatchedResponse struct {
 func (c *Client) MarkAsWatched(ctx context.Context, req *MarkAsWatchedRequest) (*MarkAsWatchedResponse, error) {
 	resp, body, err := c.post(ctx, "/sync/history", req)
 	if err != nil {
-		return nil, fmt.Errorf("generate auth code: %w", err)
+		return nil, fmt.Errorf("mark as watched: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
@@ -432,5 +432,5 @@ func (c *Client) WriteAuthFile() error {
 	if err != nil {
 		return fmt.Errorf("marshal auth data: %w", err)
 	}
-	return os.WriteFile(c.authFilePath, data, 0o644)
+	return os.WriteFile(c.authFilePath, data, 0o600)
 }

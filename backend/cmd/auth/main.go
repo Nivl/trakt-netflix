@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
-	"path"
 	"time"
 
 	"github.com/Nivl/trakt-netflix/internal/trakt"
@@ -42,7 +42,11 @@ func run() (err error) {
 		return fmt.Errorf("generate auth code: %w", err)
 	}
 
-	fmt.Printf("Please open the following URL in your browser:\n%s\n", path.Join(authCode.VerificationURL, authCode.UserCode))
+	finalURL, err := url.JoinPath(authCode.VerificationURL, authCode.UserCode)
+	if err != nil {
+		finalURL = fmt.Sprintf("%s and enter the code: %s", authCode.VerificationURL, authCode.UserCode)
+	}
+	fmt.Printf("Please open the following URL in your browser:\n%s\n", finalURL)
 	fmt.Printf("You have %d seconds to complete the authentication...\n", authCode.ExpiresIn)
 
 	tickerSecond := time.NewTicker(1 * time.Second)
