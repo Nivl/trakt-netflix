@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 
 	"github.com/Nivl/trakt-netflix/internal/client"
 	"github.com/Nivl/trakt-netflix/internal/trakt"
+	"github.com/robfig/cron"
 	"github.com/sethvargo/go-envconfig"
 )
 
@@ -45,25 +47,22 @@ func run() (err error) {
 	c := client.New(cfg.SlackWebhooks, history, traktClient)
 	slog.Info("Trakt info: starting")
 
-	// DBG
-	process(&cfg, c, history)
+	crn := cron.New()
+	err = crn.AddFunc(cfg.CronSpecs, func() { process(&cfg, c, history) })
+	if err != nil {
+		return fmt.Errorf("could not setup cron: %w", err)
+	}
+	crn.Start()
 
-	// crn := cron.New()
-	// err = crn.AddFunc(cfg.CronSpecs, func() { process(&cfg, c, history) })
-	// if err != nil {
-	// 	return fmt.Errorf("could not setup cron: %w", err)
-	// }
-	// crn.Start()
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+	slog.Info("Trakt info: stopping")
 
-	// quit := make(chan os.Signal, 1)
-	// signal.Notify(quit, os.Interrupt)
-	// <-quit
-	// slog.Info("Trakt info: stopping")
-
-	// if err = history.Write(); err != nil {
-	// 	slog.Warn("could not write history", "error", err.Error())
-	// }
-	// crn.Stop()
+	if err = history.Write(); err != nil {
+		slog.Warn("could not write history", "error", err.Error())
+	}
+	crn.Stop()
 	return nil
 }
 

@@ -5,6 +5,7 @@ go 1.24
 require (
 	github.com/PuerkitoBio/goquery v1.10.3
 	github.com/ashwanthkumar/slack-go-webhook v0.0.0-20200209025033-430dd4e66960
+	github.com/robfig/cron v1.2.0
 	github.com/sethvargo/go-envconfig v1.3.0
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/text v0.27.0
