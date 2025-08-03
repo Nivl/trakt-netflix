@@ -96,8 +96,8 @@ func NewClient(cfg ClientConfig) (clt *Client, err error) {
 
 // requestOptions holds options for the request
 type requestOptions struct {
-	dontRetryOnForbidden bool
-	noAuth               bool
+	dontRetryOnAuthFailure bool
+	noAuth                 bool
 }
 
 type requestOptionsFunc func(*requestOptions)
@@ -105,9 +105,9 @@ type requestOptionsFunc func(*requestOptions)
 // withNoRetryOnForbidden is a option for the request that indicates
 // that the request should not be retried if it receives a 403 Forbidden
 // response.
-func withNoRetryOnForbidden() requestOptionsFunc {
+func withNoRetryOnAuthFailure() requestOptionsFunc {
 	return func(opts *requestOptions) {
-		opts.dontRetryOnForbidden = true
+		opts.dontRetryOnAuthFailure = true
 	}
 }
 
@@ -137,7 +137,7 @@ func (c *Client) request(ctx context.Context, method string, path string, body j
 	if err != nil {
 		return nil, nil, err
 	}
-	if !options.dontRetryOnForbidden && resp.StatusCode == http.StatusForbidden {
+	if !options.noAuth && !options.dontRetryOnAuthFailure && resp.StatusCode == http.StatusUnauthorized {
 		newTokens, err := c.RefreshToken(ctx, c.auth.RefreshToken.Get())
 		if err != nil {
 			return nil, nil, fmt.Errorf("refresh token: %w", err)
@@ -146,7 +146,7 @@ func (c *Client) request(ctx context.Context, method string, path string, body j
 		if err = c.WriteAuthFile(); err != nil {
 			return nil, nil, fmt.Errorf("write auth file on disk: %w", err)
 		}
-		newOpts := append(opts, withNoRetryOnForbidden())
+		newOpts := append(opts, withNoRetryOnAuthFailure())
 		return c.request(ctx, method, path, body, newOpts...)
 	}
 
@@ -179,14 +179,6 @@ func (c *Client) _request(ctx context.Context, method string, path string, body 
 		return nil, nil, fmt.Errorf("send HTTP request: %w", err)
 	}
 	defer errutil.RunAndSetError(resp.Body.Close, &err, "close response body")
-
-	if resp.StatusCode == http.StatusForbidden {
-		if err = resp.Body.Close(); err != nil {
-			return nil, nil, fmt.Errorf("close response body: %w", err)
-		}
-
-		return nil, nil, fmt.Errorf("unauthorized. Check your client ID and secret, or refresh your access token if it has expired")
-	}
 
 	respBody, err = io.ReadAll(resp.Body)
 	if err != nil {
@@ -327,7 +319,7 @@ func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*Refres
 		RedirectURI:  c.redirectURI,
 		GrantType:    "refresh_token",
 		RefreshToken: refreshToken,
-	}, withNoAuth())
+	}, withNoAuth(), withNoRetryOnAuthFailure())
 	if err != nil {
 		return nil, fmt.Errorf("generate auth code: %w", err)
 	}
@@ -387,22 +379,22 @@ type MarkAsWatchedRequest struct {
 
 type MarkAsWatchedResponse struct {
 	Added struct {
-		Movies   int `json:"movies"`
-		Episodes int `json:"episodes"`
+		Movies   int `json:"movies,omitempty"`
+		Episodes int `json:"episodes,omitempty"`
 	} `json:"added"`
-	NotFound []struct {
+	NotFound struct {
 		Movies []struct {
 			IDs IDs `json:"ids"`
-		} `json:"movies"`
+		} `json:"movies,omitempty"`
 		Episodes []struct {
 			IDs IDs `json:"ids"`
-		} `json:"episodes"`
+		} `json:"episodes,omitempty"`
 	} `json:"not_found"`
 }
 
 // MarkAsWatched marks a media item as watched on Trakt.
 func (c *Client) MarkAsWatched(ctx context.Context, req *MarkAsWatchedRequest) (*MarkAsWatchedResponse, error) {
-	resp, body, err := c.get(ctx, "/sync/history")
+	resp, body, err := c.post(ctx, "/sync/history", req)
 	if err != nil {
 		return nil, fmt.Errorf("generate auth code: %w", err)
 	}
