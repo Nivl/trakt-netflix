@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Nivl/trakt-netflix/internal/errutil"
@@ -29,7 +30,7 @@ type TraktAccessToken struct {
 	ExpiresIn    int           `json:"expires_in"`
 	RefreshToken secret.Secret `json:"refresh_token"`
 	Scope        string        `json:"scope"`
-	CreatedAt    int           `json:"created_at"`
+	CreatedAt    int64         `json:"created_at"`
 }
 
 // Client is the main struct for interacting with the Trakt API.
@@ -96,6 +97,7 @@ func NewClient(cfg ClientConfig) (clt *Client, err error) {
 // requestOptions holds options for the request
 type requestOptions struct {
 	dontRetryOnForbidden bool
+	noAuth               bool
 }
 
 type requestOptionsFunc func(*requestOptions)
@@ -109,6 +111,14 @@ func withNoRetryOnForbidden() requestOptionsFunc {
 	}
 }
 
+// withNoAuth is a option for the request that indicates
+// that the request should not include authentication headers.
+func withNoAuth() requestOptionsFunc {
+	return func(opts *requestOptions) {
+		opts.noAuth = true
+	}
+}
+
 // request sends an HTTP request to the Trakt API and returns the response.
 // It handles the authentication automatically, refreshing the access token
 // if it has expired or is invalid.
@@ -118,7 +128,12 @@ func (c *Client) request(ctx context.Context, method string, path string, body j
 		o(&options)
 	}
 
-	resp, respBody, err = c._request(ctx, method, path, bytes.NewBuffer(body))
+	var bodyBuffer io.Reader = http.NoBody
+	if body != nil {
+		bodyBuffer = bytes.NewBuffer(body)
+	}
+
+	resp, respBody, err = c._request(ctx, method, path, bodyBuffer, options)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -142,7 +157,10 @@ func (c *Client) request(ctx context.Context, method string, path string, body j
 // Trakt API and returns the response and body.
 // It is used internally by the Client methods to handle the actual HTTP
 // communication.
-func (c *Client) _request(ctx context.Context, method string, path string, body io.Reader) (resp *http.Response, respBody []byte, err error) {
+func (c *Client) _request(ctx context.Context, method string, path string, body io.Reader, options requestOptions) (resp *http.Response, respBody []byte, err error) {
+	if strings.HasSuffix(c.baseURL, "/") && strings.HasPrefix(path, "/") {
+		path = path[1:]
+	}
 	url := c.baseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
@@ -150,6 +168,11 @@ func (c *Client) _request(ctx context.Context, method string, path string, body 
 		return nil, nil, fmt.Errorf("create new HTTP request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("trakt-api-version", "2")
+	req.Header.Set("trakt-api-key", c.clientID)
+	if !options.noAuth {
+		req.Header.Set("Authorization", "Bearer "+c.auth.AccessToken.Get())
+	}
 
 	resp, err = c.http.Do(req)
 	if err != nil {
@@ -173,13 +196,17 @@ func (c *Client) _request(ctx context.Context, method string, path string, body 
 	return resp, respBody, nil
 }
 
-func (c *Client) post(ctx context.Context, path string, body any) (resp *http.Response, respBody []byte, err error) {
+func (c *Client) post(ctx context.Context, path string, body any, opts ...requestOptionsFunc) (resp *http.Response, respBody []byte, err error) {
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("marshal the body: %w", err)
 	}
 
-	return c.request(ctx, http.MethodPost, path, jsonBody)
+	return c.request(ctx, http.MethodPost, path, jsonBody, opts...)
+}
+
+func (c *Client) get(ctx context.Context, path string, opts ...requestOptionsFunc) (resp *http.Response, respBody []byte, err error) {
+	return c.request(ctx, http.MethodGet, path, nil, opts...)
 }
 
 // GenerateAuthCodeRequest contains the request body for the
@@ -203,7 +230,7 @@ type GenerateAuthCodeResponse struct {
 func (c *Client) GenerateAuthCode(ctx context.Context) (*GenerateAuthCodeResponse, error) {
 	resp, body, err := c.post(ctx, "/oauth/device/code", &GenerateAuthCodeRequest{
 		ClientID: c.clientID,
-	})
+	}, withNoAuth())
 	if err != nil {
 		return nil, fmt.Errorf("generate auth code: %w", err)
 	}
@@ -248,7 +275,7 @@ func (c *Client) GetAccessToken(ctx context.Context, deviceCode string) (*GetAcc
 		ClientID:     c.clientID,
 		ClientSecret: c.clientSecret.Get(),
 		DeviceCode:   deviceCode,
-	})
+	}, withNoAuth())
 	if err != nil {
 		return nil, fmt.Errorf("generate auth code: %w", err)
 	}
@@ -300,7 +327,7 @@ func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*Refres
 		RedirectURI:  c.redirectURI,
 		GrantType:    "refresh_token",
 		RefreshToken: refreshToken,
-	})
+	}, withNoAuth())
 	if err != nil {
 		return nil, fmt.Errorf("generate auth code: %w", err)
 	}
@@ -320,6 +347,76 @@ func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*Refres
 	}
 
 	return &refreshTokenResp, nil
+}
+
+// SearchResponse contains the response from the Search method.
+type SearchResponse struct {
+	Results []struct {
+		Type    SearchTypes `json:"type"`
+		Movie   Media       `json:"movie,omitempty"`
+		Episode Episode     `json:"episode,omitempty"`
+		Show    Media       `json:"show,omitempty"`
+	} `json:"results"`
+}
+
+// Search searches for a media item on Trakt using the provided query.
+func (c *Client) Search(ctx context.Context, typ SearchTypes, query string) (*SearchResponse, error) {
+	url := fmt.Sprintf("/search/%s?query=%s", typ, query)
+
+	resp, body, err := c.get(ctx, url, withNoAuth())
+	if err != nil {
+		return nil, fmt.Errorf("generate auth code: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("http %d. See https://trakt.docs.apiary.io/#introduction/status-codes", resp.StatusCode)
+	}
+
+	var searchResponse SearchResponse
+	if err = json.Unmarshal(body, &searchResponse.Results); err != nil {
+		return nil, err
+	}
+
+	return &searchResponse, nil
+}
+
+type MarkAsWatchedRequest struct {
+	Movies   []MarkAsWatched `json:"movies"`
+	Episodes []MarkAsWatched `json:"episodes"`
+}
+
+type MarkAsWatchedResponse struct {
+	Added struct {
+		Movies   int `json:"movies"`
+		Episodes int `json:"episodes"`
+	} `json:"added"`
+	NotFound []struct {
+		Movies []struct {
+			IDs IDs `json:"ids"`
+		} `json:"movies"`
+		Episodes []struct {
+			IDs IDs `json:"ids"`
+		} `json:"episodes"`
+	} `json:"not_found"`
+}
+
+// MarkAsWatched marks a media item as watched on Trakt.
+func (c *Client) MarkAsWatched(ctx context.Context, req *MarkAsWatchedRequest) (*MarkAsWatchedResponse, error) {
+	resp, body, err := c.get(ctx, "/sync/history")
+	if err != nil {
+		return nil, fmt.Errorf("generate auth code: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("http %d. See https://trakt.docs.apiary.io/#introduction/status-codes", resp.StatusCode)
+	}
+
+	var response MarkAsWatchedResponse
+	if err = json.Unmarshal(body, &response); err != nil {
+		return nil, err
+	}
+
+	return &response, nil
 }
 
 // unsecuredTraktAccessToken is a struct that contains the access token

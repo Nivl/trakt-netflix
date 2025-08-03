@@ -11,7 +11,7 @@ import (
 )
 
 func TestExtractData(t *testing.T) {
-	c := New(nil, NewHistory())
+	c := New(nil, NewHistory(), nil)
 	data, err := os.ReadFile(filepath.Join("testdata", "netflix.html"))
 	require.NoError(t, err)
 	err = c.extractData(bytes.NewReader(data))
@@ -108,7 +108,7 @@ func TestExtractDataWithExistingData(t *testing.T) {
 			show2: {},
 		},
 	}
-	c := New(nil, history)
+	c := New(nil, history, nil)
 	data, err := os.ReadFile(filepath.Join("testdata", "netflix.html"))
 	require.NoError(t, err)
 	err = c.extractData(bytes.NewReader(data))
