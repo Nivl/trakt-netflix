@@ -1,4 +1,4 @@
-name: backend
+name: workflow
 
 on:
   push:
@@ -8,10 +8,6 @@ on:
 
 permissions:
   contents: read
-
-defaults:
-  run:
-    working-directory: backend
 
 env:
   REGISTRY: ghcr.io
@@ -103,7 +99,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./backend
+          context: .
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
