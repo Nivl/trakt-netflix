@@ -6,3 +6,4 @@ history
 data.bkp
 docker-compose.yml
 trakt-netflix
+trakt_auth.json

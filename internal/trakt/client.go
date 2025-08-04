@@ -18,6 +18,8 @@ import (
 	"github.com/Nivl/trakt-netflix/internal/secret"
 )
 
+const traktErrorCodeURL = "https://trakt.docs.apiary.io/#introduction/status-codes"
+
 // ErrPendingAuthorization is returned when the authorization is still
 // pending, waiting for the user to complete the authorization flow.
 var ErrPendingAuthorization = errors.New("pending authorization.")
@@ -85,7 +87,7 @@ func NewClient(cfg ClientConfig) (clt *Client, err error) {
 		http: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		baseURL:      "https://api.trakt.tv/",
+		baseURL:      "https://api.trakt.tv",
 		clientID:     cfg.ClientID,
 		clientSecret: cfg.ClientSecret,
 		redirectURI:  cfg.RedirectURI,
@@ -138,13 +140,9 @@ func (c *Client) request(ctx context.Context, method string, path string, body j
 		return nil, nil, err
 	}
 	if !options.noAuth && !options.dontRetryOnAuthFailure && resp.StatusCode == http.StatusUnauthorized {
-		newTokens, err := c.RefreshToken(ctx, c.auth.RefreshToken.Get())
+		_, err := c.RefreshToken(ctx, c.auth.RefreshToken.Get())
 		if err != nil {
 			return nil, nil, fmt.Errorf("refresh token: %w", err)
-		}
-		c.auth = newTokens.TraktAccessToken
-		if err = c.WriteAuthFile(); err != nil {
-			return nil, nil, fmt.Errorf("write auth file on disk: %w", err)
 		}
 		newOpts := append(opts, withNoRetryOnAuthFailure())
 		return c.request(ctx, method, path, body, newOpts...)
@@ -228,7 +226,7 @@ func (c *Client) GenerateAuthCode(ctx context.Context) (*GenerateAuthCodeRespons
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("http %d. See https://trakt.docs.apiary.io/#introduction/status-codes", resp.StatusCode)
+		return nil, fmt.Errorf("http %d. See %s", resp.StatusCode, traktErrorCodeURL)
 	}
 
 	var authCodeResp GenerateAuthCodeResponse
@@ -277,7 +275,7 @@ func (c *Client) GetAccessToken(ctx context.Context, deviceCode string) (*GetAcc
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("http %d. See https://trakt.docs.apiary.io/#introduction/status-codes", resp.StatusCode)
+		return nil, fmt.Errorf("http %d. See %s", resp.StatusCode, traktErrorCodeURL)
 	}
 
 	var accessTokenResp GetAccessTokenResponse
@@ -325,7 +323,7 @@ func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*Refres
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("http %d. See https://trakt.docs.apiary.io/#introduction/status-codes", resp.StatusCode)
+		return nil, fmt.Errorf("http %d. See %s", resp.StatusCode, traktErrorCodeURL)
 	}
 
 	var refreshTokenResp RefreshTokenResponse
@@ -361,7 +359,7 @@ func (c *Client) Search(ctx context.Context, typ SearchTypes, query string) (*Se
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("http %d. See https://trakt.docs.apiary.io/#introduction/status-codes", resp.StatusCode)
+		return nil, fmt.Errorf("http %d. See %s", resp.StatusCode, traktErrorCodeURL)
 	}
 
 	var searchResponse SearchResponse
@@ -400,7 +398,7 @@ func (c *Client) MarkAsWatched(ctx context.Context, req *MarkAsWatchedRequest) (
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("http %d. See https://trakt.docs.apiary.io/#introduction/status-codes", resp.StatusCode)
+		return nil, fmt.Errorf("http %d. See %s", resp.StatusCode, traktErrorCodeURL)
 	}
 
 	var response MarkAsWatchedResponse
