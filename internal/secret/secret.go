@@ -15,6 +15,8 @@ import (
 	"strconv"
 )
 
+const redacted = "**REDACTED**"
+
 // Secret represents a secret string that is protected against accidental leaks
 type Secret struct {
 	secret *string
@@ -44,19 +46,19 @@ func (s *Secret) EnvDecode(val string) error {
 // String implements the fmt.Stringer interface (%s).
 // It returns "**REDACTED**"
 func (s Secret) String() string {
-	return "**REDACTED**"
+	return redacted
 }
 
 // GoString implements the fmt.GoStringer interface (%#v).
 // It returns "**REDACTED**"
 func (s Secret) GoString() string {
-	return "**REDACTED**"
+	return redacted
 }
 
 // MarshalJSON implements the json.Marshaler interface.
 // It returns "**REDACTED**"
 func (s Secret) MarshalJSON() ([]byte, error) {
-	return []byte(`"**REDACTED**"`), nil
+	return []byte(fmt.Sprintf("%q", redacted)), nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface
@@ -82,7 +84,7 @@ func (s *Secret) GobDecode(data []byte) error {
 // MarshalText implements the encoding.TextMarshaler interface
 // It returns "**REDACTED**"
 func (s Secret) MarshalText() ([]byte, error) {
-	return []byte(`**REDACTED**`), nil
+	return []byte(redacted), nil
 }
 
 // UnmarshalText implements the encoding.TextUnmarshaler interface
@@ -95,8 +97,6 @@ func (s *Secret) UnmarshalText(data []byte) error {
 // MarshalBinary implements the encoding.BinaryMarshaler interface
 // It returns "**REDACTED**"
 func (s Secret) MarshalBinary() ([]byte, error) {
-	redacted := "**REDACTED**"
-
 	buf := new(bytes.Buffer)
 	for _, c := range redacted {
 		err := binary.Write(buf, binary.LittleEndian, c)
