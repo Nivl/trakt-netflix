@@ -1,0 +1,30 @@
+name: Go setup
+description: "Sets up the Go environment"
+
+outputs:
+  cache-key:
+    description: "Contains key of the cache"
+    value: ${{ steps.go-mod-cache.outputs.cache-primary-key }}
+  is-cache-hit:
+    description: '"true" if the cache got hit for go.mod'
+    value: ${{ steps.go-mod-cache.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    - id: go-cache-path
+      shell: sh
+      run: |
+        echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
+
+    - run: git config --global --add safe.directory /__w/trakt-netflix/trakt-netflix
+      shell: sh
+
+    - name: Restore & Update Go cache
+      id: go-mod-cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.go-cache-path.outputs.go-mod }}
+        key: ${{ runner.os }}-go-mod-${{ hashFiles('./go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-mod-
