@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Nivl/trakt-netflix/internal/netflix"
 	"github.com/Nivl/trakt-netflix/internal/trakt"
 )
 
@@ -13,14 +14,16 @@ type Client struct {
 	slackWebhooks []string
 	history       *History
 	traktClient   *trakt.Client
+	netflixClient *netflix.Client
 }
 
 // New returns a new Client
-func New(slackWebhooks []string, history *History, traktClient *trakt.Client) *Client {
+func New(slackWebhooks []string, history *History, traktClient *trakt.Client, netflixClient *netflix.Client) *Client {
 	return &Client{
 		slackWebhooks: slackWebhooks,
 		history:       history,
 		traktClient:   traktClient,
+		netflixClient: netflixClient,
 		http: &http.Client{
 			Timeout: 10 * time.Second,
 		},
