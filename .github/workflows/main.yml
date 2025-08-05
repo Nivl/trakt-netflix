@@ -24,8 +24,7 @@ jobs:
     name: detect what files changed
     runs-on: ubuntu-latest
     container:
-      # replace with variable https://github.com/actions/runner/issues/1182
-      image: ghcr.io/nivl/service-images-go-dev:sha-f8dbff4
+      image: &service-images-go-dev ghcr.io/nivl/service-images-go-dev:sha-f8dbff4
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
@@ -64,7 +63,7 @@ jobs:
     needs: [prepare-env]
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/nivl/service-images-go-dev:sha-f8dbff4
+      image: *service-images-go-dev
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
@@ -86,7 +85,7 @@ jobs:
     needs: [prepare-env]
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/nivl/service-images-go-dev:sha-f8dbff4
+      image: *service-images-go-dev
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
@@ -107,7 +106,7 @@ jobs:
     needs: [prepare-env]
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/nivl/service-images-go-dev:sha-f8dbff4
+      image: *service-images-go-dev
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
