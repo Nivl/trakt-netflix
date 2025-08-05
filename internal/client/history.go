@@ -6,19 +6,21 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Nivl/trakt-netflix/internal/netflix"
+	"github.com/Nivl/trakt-netflix/internal/o11y"
 	"github.com/Nivl/trakt-netflix/internal/pathutil"
 )
 
 type History struct {
-	ItemsSearch map[string]struct{} `json:"search"`
-	Items       []string            `json:"items"`
-	ToProcess   []*NetflixHistory   `json:"-"`
+	ItemsSearch map[string]struct{}      `json:"search"`
+	Items       []string                 `json:"items"`
+	ToProcess   []*netflix.WatchActivity `json:"-"`
 }
 
 func NewHistory() *History {
 	return &History{
 		ItemsSearch: make(map[string]struct{}),
-		ToProcess:   []*NetflixHistory{},
+		ToProcess:   []*netflix.WatchActivity{},
 	}
 }
 
@@ -27,19 +29,19 @@ func (h *History) Has(item string) bool {
 	return ok
 }
 
-func (h *History) Push(item string, r Reporter) {
+func (h *History) Push(item string, r o11y.Reporter) {
 	if h.Has(item) {
 		return
 	}
 
-	if len(h.Items) >= NetfliHistorySize {
+	if len(h.Items) >= netflix.HistorySize {
 		delete(h.ItemsSearch, h.Items[0])
 		h.Items = h.Items[1:]
 	}
 
 	h.Items = append(h.Items, item)
 	h.ItemsSearch[item] = struct{}{}
-	h.ToProcess = append(h.ToProcess, parseNetflixTitle(item, r))
+	h.ToProcess = append(h.ToProcess, netflix.ParseTitle(item, r))
 }
 
 func (h *History) Write() error {
@@ -69,5 +71,5 @@ func (h *History) Load() error {
 }
 
 func (h *History) ClearNetflixHistory() {
-	h.ToProcess = []*NetflixHistory{}
+	h.ToProcess = []*netflix.WatchActivity{}
 }

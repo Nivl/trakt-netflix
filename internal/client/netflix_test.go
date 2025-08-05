@@ -2,19 +2,51 @@ package client
 
 import (
 	"bytes"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/Nivl/trakt-netflix/internal/mocks"
+	"github.com/Nivl/trakt-netflix/internal/netflix"
+	"github.com/Nivl/trakt-netflix/internal/trakt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestExtractData(t *testing.T) {
-	c := New(nil, NewHistory(), nil)
+	t.Parallel()
+
 	data, err := os.ReadFile(filepath.Join("testdata", "netflix.html"))
 	require.NoError(t, err)
-	err = c.extractData(bytes.NewReader(data))
+
+	mockctrl := gomock.NewController(t)
+	defer mockctrl.Finish()
+
+	Doer := mocks.NewMockDoer(mockctrl)
+	Doer.EXPECT().Do(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(data)),
+		}, nil
+	})
+
+	netflixClient, err := netflix.NewClientWithDoer(netflix.Config{
+		URL:       "https://www.netflix.com/viewingactivity",
+		AccountID: "your_account_id",
+		Cookie:    "your_cookie",
+	}, Doer)
+	require.NoError(t, err)
+
+	traktClient, err := trakt.NewClient(trakt.ClientConfig{})
+	require.NoError(t, err)
+
+	c := New(nil, NewHistory(), traktClient, netflixClient)
+	require.NoError(t, err)
+
+	err = c.FetchHistory(t.Context())
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -96,8 +128,8 @@ func TestExtractData(t *testing.T) {
 }
 
 func TestExtractDataWithExistingData(t *testing.T) {
-	show1 := cleanupString(`Scott Pilgrim Takes Off: Scott Pilgrim Takes Off: "Whatever"`)
-	show2 := cleanupString(`Ali Wong: Hard Knock Wife`)
+	show1 := `Scott Pilgrim Takes Off: Scott Pilgrim Takes Off: "Whatever"`
+	show2 := `Ali Wong: Hard Knock Wife`
 	history := &History{
 		Items: []string{
 			show1,
@@ -108,10 +140,35 @@ func TestExtractDataWithExistingData(t *testing.T) {
 			show2: {},
 		},
 	}
-	c := New(nil, history, nil)
+
 	data, err := os.ReadFile(filepath.Join("testdata", "netflix.html"))
 	require.NoError(t, err)
-	err = c.extractData(bytes.NewReader(data))
+
+	mockctrl := gomock.NewController(t)
+	defer mockctrl.Finish()
+
+	Doer := mocks.NewMockDoer(mockctrl)
+	Doer.EXPECT().Do(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(data)),
+		}, nil
+	})
+
+	netflixClient, err := netflix.NewClientWithDoer(netflix.Config{
+		URL:       "https://www.netflix.com/viewingactivity",
+		AccountID: "your_account_id",
+		Cookie:    "your_cookie",
+	}, Doer)
+	require.NoError(t, err)
+
+	traktClient, err := trakt.NewClient(trakt.ClientConfig{})
+	require.NoError(t, err)
+
+	c := New(nil, history, traktClient, netflixClient)
+	require.NoError(t, err)
+
+	err = c.FetchHistory(t.Context())
 	require.NoError(t, err)
 
 	testCases := []struct {

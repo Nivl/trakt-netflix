@@ -12,10 +12,32 @@ import (
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/Nivl/trakt-netflix/internal/netflix"
 	"github.com/Nivl/trakt-netflix/internal/trakt"
 )
 
 var stringNormalizer = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+
+// Run fetches the viewing history from Netflix and marks it as
+// watched on Trakt
+func (c *Client) Run(ctx context.Context) error {
+	if err := c.FetchHistory(ctx); err != nil {
+		return err
+	}
+	c.MarkAsWatched(ctx)
+	return nil
+}
+
+func (c *Client) FetchHistory(ctx context.Context) error {
+	history, err := c.netflixClient.FetchHistory(ctx)
+	if err != nil {
+		return fmt.Errorf("fetch history: %w", err)
+	}
+	for _, item := range history {
+		c.history.Push(item, c)
+	}
+	return nil
+}
 
 // MarkAsWatched mark as watched all the provided media
 func (c *Client) MarkAsWatched(ctx context.Context) {
@@ -43,7 +65,7 @@ func (c *Client) MarkAsWatched(ctx context.Context) {
 }
 
 // searchMedia tries to map a Netflix movie/episode to one on Trakt
-func (c *Client) searchMedia(ctx context.Context, h *NetflixHistory, medias *trakt.MarkAsWatchedRequest) error {
+func (c *Client) searchMedia(ctx context.Context, h *netflix.WatchActivity, medias *trakt.MarkAsWatchedRequest) error {
 	now := time.Now().Format(time.RFC3339)
 
 	typ := trakt.SearchTypeMovie
