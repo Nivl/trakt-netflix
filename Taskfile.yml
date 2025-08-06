@@ -1,0 +1,78 @@
+version: "3"
+
+dotenv: [".env", ".env.local", ".env.development"]
+
+includes:
+  ci: ./Taskfile_CI.yml
+
+vars:
+  BIN_SERVICE_OUT: "./bin/service"
+  BIN_AUTH_OUT: "./bin/auth"
+
+tasks:
+  install-deps:
+    cmds:
+      - go install go.uber.org/mock/mockgen@latest
+
+  build:
+    cmds:
+      - CGO_ENABLED=0 go build -v -o {{.BIN_SERVICE_OUT}} github.com/Nivl/trakt-netflix/cmd/service
+      - CGO_ENABLED=0 go build -v -o {{.BIN_AUTH_OUT}} github.com/Nivl/trakt-netflix/cmd/auth
+    generates:
+      - "{{.BIN_SERVICE_OUT}}"
+      - "{{.BIN_AUTH_OUT}}"
+
+  start:
+    deps: [build]
+    cmds:
+      - "{{.BIN_SERVICE_OUT}}"
+
+  start-auth:
+    deps: [build]
+    cmds:
+      - "{{.BIN_AUTH_OUT}}"
+
+  dev:
+    deps: [build]
+    cmds:
+      - "{{.BIN_SERVICE_OUT}}"
+    sources:
+      - ./**/*.go
+      - ./**/*.env
+      - ./**/*.mod
+      - ./**/*.sum
+    generates:
+      - "{{.BIN_SERVICE_OUT}}"
+
+  dev-auth:
+    deps: [build]
+    cmds:
+      - "{{.BIN_AUTH_OUT}}"
+    sources:
+      - ./**/*.go
+      - ./**/*.env
+      - ./**/*.mod
+      - ./**/*.sum
+    generates:
+      - "{{.BIN_AUTH_OUT}}"
+
+  lint:
+    cmds:
+      - golangci-lint run ./...
+
+  generate:
+    cmds:
+      - go generate ./...
+      - go mod tidy
+
+  deps-upgrade:
+    cmds:
+      - go get -t -u ./...
+      - go mod tidy
+
+  tidy:
+    cmds:
+      - go generate ./...
+      - go mod tidy
+
+  test: go test -race ./...

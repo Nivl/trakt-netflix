@@ -1,0 +1,22 @@
+version: "3"
+
+tasks:
+  # This is only used by the CI, for the production build check the Dockerfile
+  build:
+    cmds:
+      - CGO_ENABLED=0 go build -v -o ./bin/service github.com/Nivl/trakt-netflix/cmd/service
+      - CGO_ENABLED=0 go build -v -o ./bin/auth github.com/Nivl/trakt-netflix/cmd/auth
+
+  lint:
+    cmds:
+      - golangci-lint run ./...
+      - git diff --exit-code
+      - go mod tidy
+      - git diff --exit-code
+      - go generate ./...
+      - go mod tidy
+      - git diff --exit-code
+
+  test:
+    - mkdir -p {{.RESULTS_DIR}}
+    - CGO_ENABLED=1 gotestsum --jsonfile="{{.RESULTS_DIR}}"/results.json -- -race -timeout 3m -coverprofile coverage.txt ./...

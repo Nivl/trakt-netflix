@@ -76,9 +76,7 @@ jobs:
         uses: './.github/actions/setup-go'
 
       - name: Build
-        run: |
-          CGO_ENABLED=0 go build -v -o ./bin/service github.com/Nivl/trakt-netflix/cmd/service
-          CGO_ENABLED=0 go build -v -o ./bin/auth github.com/Nivl/trakt-netflix/cmd/auth
+        run: task ci:build
 
   lint:
     if: needs.prepare-env.outputs.code-changed == 'true'
@@ -100,6 +98,9 @@ jobs:
       - run: |
           go mod tidy
           git diff --exit-code
+          go generate ./...
+          go mod tidy
+          git diff --exit-code
 
   test:
     if: needs.prepare-env.outputs.code-changed == 'true'
@@ -118,8 +119,8 @@ jobs:
         id: restore-cache
         uses: './.github/actions/setup-go'
 
-      - run: |
-          go test ./...
+      - name: Test
+        run: task ci:test RESULTS_DIR=/tmp/test-results
 
   build-image:
     if: |
