@@ -13,7 +13,7 @@ var (
 	titleSeasonRegex    = regexp.MustCompile(`(.+): (((Season|Part) (\d+))|(Limited Series)|(Collection)): "(.+)"`)
 )
 
-func ParseTitle(title string, repporter o11y.Reporter) *WatchActivity {
+func ParseTitle(title string, reporter o11y.Reporter) *WatchActivity {
 	h := &WatchActivity{
 		Title:  title,
 		IsShow: titleDefaultRegex.MatchString(title),
@@ -69,8 +69,8 @@ func ParseTitle(title string, repporter o11y.Reporter) *WatchActivity {
 		h.Title = matches[0][1]
 		h.EpisodeName = matches[0][3]
 
-		if repporter != nil {
-			repporter.SendMessage(
+		if reporter != nil {
+			reporter.SendMessage(
 				fmt.Sprintf("Potentially weird title found: %s. Assuming it's a show named '%s' with an episode named '%s'",
 					title, h.Title, h.EpisodeName,
 				))
@@ -79,8 +79,8 @@ func ParseTitle(title string, repporter o11y.Reporter) *WatchActivity {
 		return h
 	}
 
-	if repporter != nil {
-		repporter.SendMessage(fmt.Sprintf("Potentially weird title found: %s. Assuming it's a movie.", title))
+	if reporter != nil {
+		reporter.SendMessage(fmt.Sprintf("Potentially weird title found: %s. Assuming it's a movie.", title))
 	}
 	h.IsShow = false
 	return h

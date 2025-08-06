@@ -11,18 +11,17 @@ import (
 	"unicode"
 
 	"github.com/Nivl/trakt-netflix/internal/errutil"
+	"github.com/Nivl/trakt-netflix/internal/o11y"
 	"github.com/PuerkitoBio/goquery"
 )
 
-// FetchHistory returns the viewing history from Netflix
-//
-// The returned data must be closed
-func (c *Client) FetchHistory(ctx context.Context) (history []string, err error) {
+// FetchHistory Updates the viewing history from Netflix
+func (c *Client) FetchHistory(ctx context.Context, reporter o11y.Reporter) (err error) {
 	slog.Info("Checking for new watched medias on Netflix")
 
-	res, err := c.request(ctx, c.watchActivityURL)
+	res, err := c.request(ctx, c.WatchActivityURL)
 	if err != nil {
-		return nil, fmt.Errorf("make http request: %w", err)
+		return fmt.Errorf("make http request: %w", err)
 	}
 
 	defer errutil.RunAndSetError(res.Body.Close, &err, "close response body")
@@ -32,16 +31,12 @@ func (c *Client) FetchHistory(ctx context.Context) (history []string, err error)
 	}, &err, "empty response body")
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("http %d", res.StatusCode)
+		return fmt.Errorf("http %d", res.StatusCode)
 	}
 
-	return c.extractData(res.Body)
-}
-
-func (c *Client) extractData(r io.Reader) ([]string, error) {
-	doc, err := goquery.NewDocumentFromReader(r)
+	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("parsing HTML: %w", err)
+		return fmt.Errorf("parsing HTML: %w", err)
 	}
 
 	newList := make([]string, 0, HistorySize)
@@ -52,10 +47,11 @@ func (c *Client) extractData(r io.Reader) ([]string, error) {
 	// we reverse the list to have the oldest entries first, and
 	// newest last
 	slices.Reverse(newList)
-	for i, title := range newList {
-		newList[i] = cleanupString(title)
+	for _, title := range newList {
+		c.History.Push(cleanupString(title), reporter)
 	}
-	return newList, nil
+
+	return nil
 }
 
 // cleanupString normalizes whitespace in a string.

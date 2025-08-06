@@ -33,17 +33,21 @@ func TestFetchHistory(t *testing.T) {
 		}, nil
 	})
 
-	netflixClient, err := netflix.NewClientWithDoer(netflix.Config{
-		URL:       "https://www.netflix.com/viewingactivity",
-		AccountID: "your_account_id",
-		Cookie:    "your_cookie",
-	}, Doer)
-	require.NoError(t, err)
+	netflixClient := &netflix.Client{
+		History: &netflix.History{
+			ItemsSearch: make(map[string]struct{}),
+			Items:       []string{},
+			NewActivity: []*netflix.WatchActivity{},
+		},
+		Cookie:           "cookie",
+		WatchActivityURL: "https://www.netflix.com/viewingactivity",
+		HTTP:             Doer,
+	}
 
 	traktClient, err := trakt.NewClient(trakt.ClientConfig{})
 	require.NoError(t, err)
 
-	c := New(NewHistory(), traktClient, netflixClient, nil)
+	c := New(traktClient, netflixClient, nil)
 	require.NoError(t, err)
 
 	err = c.FetchHistory(t.Context())
@@ -110,16 +114,17 @@ func TestFetchHistory(t *testing.T) {
 			isShow:  true,
 		},
 	}
-	require.Len(t, c.history.ToProcess, len(testCases))
+	history := c.netflixClient.History
+	require.Len(t, history.NewActivity, len(testCases))
 
 	for i, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			h := c.history.ToProcess
+			h := history.NewActivity
 			assert.Equal(t, tc.episode, h[i].EpisodeName)
 			assert.Equal(t, tc.name, h[i].Title)
 			assert.Equal(t, tc.isShow, h[i].IsShow)
 
-			item := c.history.Items
+			item := history.Items
 			assert.Equal(t, tc.entry, item[i])
 		})
 	}
@@ -128,7 +133,7 @@ func TestFetchHistory(t *testing.T) {
 func TestFetchHistoryWithExistingData(t *testing.T) {
 	show1 := `Scott Pilgrim Takes Off: Scott Pilgrim Takes Off: "Whatever"`
 	show2 := `Ali Wong: Hard Knock Wife`
-	history := &History{
+	history := &netflix.History{
 		Items: []string{
 			show1,
 			show2,
@@ -153,17 +158,17 @@ func TestFetchHistoryWithExistingData(t *testing.T) {
 		}, nil
 	})
 
-	netflixClient, err := netflix.NewClientWithDoer(netflix.Config{
-		URL:       "https://www.netflix.com/viewingactivity",
-		AccountID: "your_account_id",
-		Cookie:    "your_cookie",
-	}, Doer)
-	require.NoError(t, err)
+	netflixClient := &netflix.Client{
+		History:          history,
+		Cookie:           "cookie",
+		WatchActivityURL: "https://www.netflix.com/viewingactivity",
+		HTTP:             Doer,
+	}
 
 	traktClient, err := trakt.NewClient(trakt.ClientConfig{})
 	require.NoError(t, err)
 
-	c := New(history, traktClient, netflixClient, nil)
+	c := New(traktClient, netflixClient, nil)
 	require.NoError(t, err)
 
 	err = c.FetchHistory(t.Context())
@@ -218,11 +223,11 @@ func TestFetchHistoryWithExistingData(t *testing.T) {
 			isShow:  true,
 		},
 	}
-	require.Len(t, c.history.ToProcess, len(testCases))
+	require.Len(t, history.NewActivity, len(testCases))
 
 	for i, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			h := c.history.ToProcess
+			h := history.NewActivity
 			assert.Equal(t, tc.episode, h[i].EpisodeName)
 			assert.Equal(t, tc.name, h[i].Title)
 			assert.Equal(t, tc.isShow, h[i].IsShow)

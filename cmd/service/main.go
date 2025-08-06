@@ -36,11 +36,6 @@ func run() (err error) {
 		return fmt.Errorf("parse the env: %w", err)
 	}
 
-	history := activitytracker.NewHistory()
-	if err = history.Load(); err != nil {
-		slog.Warn("load history file", "error", err.Error())
-	}
-
 	traktClient, err := trakt.NewClient(cfg.Trakt)
 	if err != nil {
 		return fmt.Errorf("create trakt client: %w", err)
@@ -53,11 +48,11 @@ func run() (err error) {
 
 	slackClient := slack.NewClient(cfg.Slack)
 
-	c := activitytracker.New(history, traktClient, netflixClient, slackClient)
+	c := activitytracker.New(traktClient, netflixClient, slackClient)
 	slog.Info("Trakt info: starting")
 
 	crn := cron.New()
-	err = crn.AddFunc(cfg.CronSpecs, func() { process(c, history) })
+	err = crn.AddFunc(cfg.CronSpecs, func() { process(c) })
 	if err != nil {
 		return fmt.Errorf("setup cron: %w", err)
 	}
@@ -68,20 +63,14 @@ func run() (err error) {
 	<-quit
 	slog.Info("Trakt info: stopping")
 
-	if err = history.Write(); err != nil {
-		slog.Warn("write history on disk", "error", err.Error())
-	}
 	crn.Stop()
 	return nil
 }
 
-func process(c *activitytracker.Client, history *activitytracker.History) {
+func process(c *activitytracker.Client) {
 	ctx := context.Background()
 	if err := c.Run(ctx); err != nil {
-		slog.Info("could not fetch shows from Netflix", "error", err)
+		slog.Info("An error occurred during a run", "error", err)
 		return
-	}
-	if err := history.Write(); err != nil {
-		slog.Warn("could not write history", "error", err.Error())
 	}
 }
