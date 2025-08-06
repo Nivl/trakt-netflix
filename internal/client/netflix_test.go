@@ -43,7 +43,7 @@ func TestExtractData(t *testing.T) {
 	traktClient, err := trakt.NewClient(trakt.ClientConfig{})
 	require.NoError(t, err)
 
-	c := New(nil, NewHistory(), traktClient, netflixClient)
+	c := New(NewHistory(), traktClient, netflixClient, nil)
 	require.NoError(t, err)
 
 	err = c.FetchHistory(t.Context())
@@ -165,7 +165,7 @@ func TestExtractDataWithExistingData(t *testing.T) {
 	traktClient, err := trakt.NewClient(trakt.ClientConfig{})
 	require.NoError(t, err)
 
-	c := New(nil, history, traktClient, netflixClient)
+	c := New(history, traktClient, netflixClient, nil)
 	require.NoError(t, err)
 
 	err = c.FetchHistory(t.Context())

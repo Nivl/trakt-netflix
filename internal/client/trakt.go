@@ -34,7 +34,7 @@ func (c *Client) FetchHistory(ctx context.Context) error {
 		return fmt.Errorf("fetch history: %w", err)
 	}
 	for _, item := range history {
-		c.history.Push(item, c)
+		c.history.Push(item, c.slackClient)
 	}
 	return nil
 }
@@ -45,22 +45,22 @@ func (c *Client) MarkAsWatched(ctx context.Context) {
 	for _, h := range c.history.ToProcess {
 		err := c.searchMedia(ctx, h, medias)
 		if err != nil {
-			c.Report("Trakt: Couldn't find: " + h.String() + ".\nError: " + err.Error() + "\nPlease add manually.")
+			c.slackClient.SendMessage("Trakt: Couldn't find: " + h.String() + ".\nError: " + err.Error() + "\nPlease add manually.")
 			slog.Error("media search failed", "isShow", h.IsShow, "media", h.String(), "error", err.Error())
 			continue
 		}
-		c.Report("Adding to current watchlist batch: " + h.String())
+		c.slackClient.SendMessage("Adding to current watchlist batch: " + h.String())
 
 		time.Sleep(100 * time.Millisecond)
 	}
 
 	_, err := c.traktClient.MarkAsWatched(ctx, medias)
 	if err != nil {
-		c.Report("Trakt: Couldn't mark the batch as watched. Error: " + err.Error())
+		c.slackClient.SendMessage("Trakt: Couldn't mark the batch as watched. Error: " + err.Error())
 		slog.Error("failed to watch", "error", err.Error(), "medias", medias)
 		return
 	}
-	c.Report("Batch processed successfully")
+	c.slackClient.SendMessage("Batch processed successfully")
 	c.history.ClearNetflixHistory()
 }
 
