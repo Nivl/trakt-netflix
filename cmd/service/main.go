@@ -9,16 +9,17 @@ import (
 
 	"github.com/Nivl/trakt-netflix/internal/client"
 	"github.com/Nivl/trakt-netflix/internal/netflix"
+	"github.com/Nivl/trakt-netflix/internal/slack"
 	"github.com/Nivl/trakt-netflix/internal/trakt"
 	"github.com/robfig/cron"
 	"github.com/sethvargo/go-envconfig"
 )
 
 type appConfig struct {
-	Netflix       netflix.Config     `env:",prefix=NETFLIX_"`
-	Trakt         trakt.ClientConfig `env:",prefix=TRAKT_"`
-	SlackWebhooks []string           `env:"SLACK_WEBHOOKS"`
-	CronSpecs     string             `env:"CRON_SPECS,default=@hourly"`
+	Netflix   netflix.Config     `env:",prefix=NETFLIX_"`
+	Trakt     trakt.ClientConfig `env:",prefix=TRAKT_"`
+	Slack     slack.Config       `env:",prefix=SLACK_"`
+	CronSpecs string             `env:"CRON_SPECS,default=@hourly"`
 }
 
 func main() {
@@ -50,7 +51,9 @@ func run() (err error) {
 		return fmt.Errorf("create netflix client: %w", err)
 	}
 
-	c := client.New(cfg.SlackWebhooks, history, traktClient, netflixClient)
+	slackClient := slack.NewClient(cfg.Slack)
+
+	c := client.New(history, traktClient, netflixClient, slackClient)
 	slog.Info("Trakt info: starting")
 
 	crn := cron.New()

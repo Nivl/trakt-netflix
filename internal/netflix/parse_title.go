@@ -70,7 +70,7 @@ func ParseTitle(title string, repporter o11y.Reporter) *WatchActivity {
 		h.EpisodeName = matches[0][3]
 
 		if repporter != nil {
-			repporter.Report(
+			repporter.SendMessage(
 				fmt.Sprintf("Potentially weird title found: %s. Assuming it's a show named '%s' with an episode named '%s'",
 					title, h.Title, h.EpisodeName,
 				))
@@ -80,7 +80,7 @@ func ParseTitle(title string, repporter o11y.Reporter) *WatchActivity {
 	}
 
 	if repporter != nil {
-		repporter.Report(fmt.Sprintf("Potentially weird title found: %s. Assuming it's a movie.", title))
+		repporter.SendMessage(fmt.Sprintf("Potentially weird title found: %s. Assuming it's a movie.", title))
 	}
 	h.IsShow = false
 	return h
