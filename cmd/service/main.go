@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/Nivl/trakt-netflix/internal/client"
+	"github.com/Nivl/trakt-netflix/internal/activitytracker"
 	"github.com/Nivl/trakt-netflix/internal/netflix"
 	"github.com/Nivl/trakt-netflix/internal/slack"
 	"github.com/Nivl/trakt-netflix/internal/trakt"
@@ -36,7 +36,7 @@ func run() (err error) {
 		return fmt.Errorf("parse the env: %w", err)
 	}
 
-	history := client.NewHistory()
+	history := activitytracker.NewHistory()
 	if err = history.Load(); err != nil {
 		slog.Warn("load history file", "error", err.Error())
 	}
@@ -53,11 +53,11 @@ func run() (err error) {
 
 	slackClient := slack.NewClient(cfg.Slack)
 
-	c := client.New(history, traktClient, netflixClient, slackClient)
+	c := activitytracker.New(history, traktClient, netflixClient, slackClient)
 	slog.Info("Trakt info: starting")
 
 	crn := cron.New()
-	err = crn.AddFunc(cfg.CronSpecs, func() { process(&cfg, c, history) })
+	err = crn.AddFunc(cfg.CronSpecs, func() { process(c, history) })
 	if err != nil {
 		return fmt.Errorf("setup cron: %w", err)
 	}
@@ -75,7 +75,7 @@ func run() (err error) {
 	return nil
 }
 
-func process(cfg *appConfig, c *client.Client, history *client.History) {
+func process(c *activitytracker.Client, history *activitytracker.History) {
 	ctx := context.Background()
 	if err := c.Run(ctx); err != nil {
 		slog.Info("could not fetch shows from Netflix", "error", err)

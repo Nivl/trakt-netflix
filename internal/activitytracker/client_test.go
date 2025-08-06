@@ -1,4 +1,4 @@
-package client
+package activitytracker
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestExtractData(t *testing.T) {
+func TestFetchHistory(t *testing.T) {
 	t.Parallel()
 
 	data, err := os.ReadFile(filepath.Join("testdata", "netflix.html"))
@@ -113,8 +113,6 @@ func TestExtractData(t *testing.T) {
 	require.Len(t, c.history.ToProcess, len(testCases))
 
 	for i, tc := range testCases {
-		i := i
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			h := c.history.ToProcess
 			assert.Equal(t, tc.episode, h[i].EpisodeName)
@@ -127,7 +125,7 @@ func TestExtractData(t *testing.T) {
 	}
 }
 
-func TestExtractDataWithExistingData(t *testing.T) {
+func TestFetchHistoryWithExistingData(t *testing.T) {
 	show1 := `Scott Pilgrim Takes Off: Scott Pilgrim Takes Off: "Whatever"`
 	show2 := `Ali Wong: Hard Knock Wife`
 	history := &History{
@@ -223,8 +221,6 @@ func TestExtractDataWithExistingData(t *testing.T) {
 	require.Len(t, c.history.ToProcess, len(testCases))
 
 	for i, tc := range testCases {
-		i := i
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			h := c.history.ToProcess
 			assert.Equal(t, tc.episode, h[i].EpisodeName)

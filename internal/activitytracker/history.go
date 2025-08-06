@@ -1,4 +1,4 @@
-package client
+package activitytracker
 
 import (
 	"encoding/json"
