@@ -1,4 +1,4 @@
-package activitytracker
+package netflix
 
 import (
 	"encoding/json"
@@ -6,22 +6,26 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Nivl/trakt-netflix/internal/netflix"
 	"github.com/Nivl/trakt-netflix/internal/o11y"
 	"github.com/Nivl/trakt-netflix/internal/pathutil"
 )
 
 type History struct {
-	ItemsSearch map[string]struct{}      `json:"search"`
-	Items       []string                 `json:"items"`
-	ToProcess   []*netflix.WatchActivity `json:"-"`
+	ItemsSearch map[string]struct{} `json:"search"`
+	Items       []string            `json:"items"`
+	NewActivity []*WatchActivity    `json:"-"`
 }
 
-func NewHistory() *History {
-	return &History{
+func NewHistory() (*History, error) {
+	h := &History{
 		ItemsSearch: make(map[string]struct{}),
-		ToProcess:   []*netflix.WatchActivity{},
+		NewActivity: []*WatchActivity{},
 	}
+	err := h.Load()
+	if err != nil {
+		return nil, fmt.Errorf("load history: %w", err)
+	}
+	return h, nil
 }
 
 func (h *History) Has(item string) bool {
@@ -34,14 +38,14 @@ func (h *History) Push(item string, r o11y.Reporter) {
 		return
 	}
 
-	if len(h.Items) >= netflix.HistorySize {
+	if len(h.Items) >= HistorySize {
 		delete(h.ItemsSearch, h.Items[0])
 		h.Items = h.Items[1:]
 	}
 
 	h.Items = append(h.Items, item)
 	h.ItemsSearch[item] = struct{}{}
-	h.ToProcess = append(h.ToProcess, netflix.ParseTitle(item, r))
+	h.NewActivity = append(h.NewActivity, ParseTitle(item, r))
 }
 
 func (h *History) Write() error {
@@ -61,6 +65,9 @@ func (h *History) Load() error {
 	// loading a huge file in memory.
 	data, err := os.ReadFile(dataFilePath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return fmt.Errorf("could not read the file: %w", err)
 	}
 	err = json.Unmarshal(data, h)
@@ -70,6 +77,6 @@ func (h *History) Load() error {
 	return nil
 }
 
-func (h *History) ClearNetflixHistory() {
-	h.ToProcess = []*netflix.WatchActivity{}
+func (h *History) ClearNewActivity() {
+	h.NewActivity = []*WatchActivity{}
 }

@@ -21,17 +21,15 @@ var stringNormalizer = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.M
 // Client represents a client to interact with external services
 type Client struct {
 	slackWebhooks []string
-	history       *History
 	traktClient   *trakt.Client
 	netflixClient *netflix.Client
 	slackClient   *slack.Client
 }
 
 // New returns a new Client
-func New(history *History, traktClient *trakt.Client, netflixClient *netflix.Client, slackClient *slack.Client) *Client {
+func New(traktClient *trakt.Client, netflixClient *netflix.Client, slackClient *slack.Client) *Client {
 	return &Client{
 		slackClient:   slackClient,
-		history:       history,
 		traktClient:   traktClient,
 		netflixClient: netflixClient,
 	}
@@ -41,19 +39,19 @@ func New(history *History, traktClient *trakt.Client, netflixClient *netflix.Cli
 // watched on Trakt
 func (c *Client) Run(ctx context.Context) error {
 	if err := c.FetchHistory(ctx); err != nil {
-		return err
+		return fmt.Errorf("fetch history: %w", err)
 	}
 	c.MarkAsWatched(ctx)
+	if err := c.netflixClient.History.Write(); err != nil {
+		return fmt.Errorf("write history: %w", err)
+	}
 	return nil
 }
 
 func (c *Client) FetchHistory(ctx context.Context) error {
-	history, err := c.netflixClient.FetchHistory(ctx)
+	err := c.netflixClient.FetchHistory(ctx, c.slackClient)
 	if err != nil {
 		return fmt.Errorf("fetch history: %w", err)
-	}
-	for _, item := range history {
-		c.history.Push(item, c.slackClient)
 	}
 	return nil
 }
@@ -61,7 +59,7 @@ func (c *Client) FetchHistory(ctx context.Context) error {
 // MarkAsWatched mark as watched all the provided media
 func (c *Client) MarkAsWatched(ctx context.Context) {
 	medias := &trakt.MarkAsWatchedRequest{}
-	for _, h := range c.history.ToProcess {
+	for _, h := range c.netflixClient.History.NewActivity {
 		err := c.searchMedia(ctx, h, medias)
 		if err != nil {
 			c.slackClient.SendMessage("Trakt: Couldn't find: " + h.String() + ".\nError: " + err.Error() + "\nPlease add manually.")
@@ -80,7 +78,7 @@ func (c *Client) MarkAsWatched(ctx context.Context) {
 		return
 	}
 	c.slackClient.SendMessage("Batch processed successfully")
-	c.history.ClearNetflixHistory()
+	c.netflixClient.History.ClearNewActivity()
 }
 
 // searchMedia tries to map a Netflix movie/episode to one on Trakt

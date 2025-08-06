@@ -14,27 +14,29 @@ type Doer interface {
 }
 
 type Client struct {
-	watchActivityURL string
-	cfg              Config
-	http             Doer
+	HTTP             Doer
+	History          *History
+	WatchActivityURL string
+	Cookie           string
 }
 
 func NewClient(cfg Config) (*Client, error) {
-	return NewClientWithDoer(cfg, &http.Client{
-		Timeout: 10 * time.Second,
-	})
-}
-
-func NewClientWithDoer(cfg Config, doer Doer) (*Client, error) {
 	u, err := url.JoinPath(cfg.URL, cfg.AccountID)
 	if err != nil {
 		return nil, fmt.Errorf("build watchActivityURL: %w", err)
 	}
 
+	watchHistory, err := NewHistory()
+	if err != nil {
+		return nil, fmt.Errorf("create history: %w", err)
+	}
 	return &Client{
-		watchActivityURL: u,
-		cfg:              cfg,
-		http:             doer,
+		WatchActivityURL: u,
+		Cookie:           cfg.Cookie,
+		History:          watchHistory,
+		HTTP: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}, nil
 }
 
@@ -45,8 +47,8 @@ func (c *Client) request(ctx context.Context, url string) (*http.Response, error
 	}
 	req.AddCookie(&http.Cookie{
 		Name:  "NetflixId",
-		Value: c.cfg.Cookie,
+		Value: c.Cookie,
 	})
 
-	return c.http.Do(req)
+	return c.HTTP.Do(req)
 }
