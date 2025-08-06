@@ -15,9 +15,9 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-// FetchHistory Updates the viewing history from Netflix
-func (c *Client) FetchHistory(ctx context.Context, reporter o11y.Reporter) (err error) {
-	slog.Info("Checking for new watched medias on Netflix")
+// UpdateHistory Updates the viewing history from Netflix
+func (c *Client) UpdateHistory(ctx context.Context, reporter o11y.Reporter) (err error) {
+	slog.InfoContext(ctx, "Checking for new watched medias on Netflix")
 
 	res, err := c.request(ctx, c.WatchActivityURL)
 	if err != nil {
@@ -48,13 +48,14 @@ func (c *Client) FetchHistory(ctx context.Context, reporter o11y.Reporter) (err 
 	// newest last
 	slices.Reverse(newList)
 	for _, title := range newList {
-		c.History.Push(cleanupString(title), reporter)
+		c.History.Push(ctx, cleanupString(title), reporter)
 	}
 
 	return nil
 }
 
 // cleanupString normalizes whitespace in a string.
+//
 // TODO(melvin): There's probably a cleaner way to do that.
 func cleanupString(s string) string {
 	out := strings.Builder{}

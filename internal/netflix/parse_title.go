@@ -1,6 +1,7 @@
 package netflix
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 
@@ -13,10 +14,13 @@ var (
 	titleSeasonRegex    = regexp.MustCompile(`(.+): (((Season|Part) (\d+))|(Limited Series)|(Collection)): "(.+)"`)
 )
 
-func ParseTitle(title string, reporter o11y.Reporter) *WatchActivity {
+// ParseTitle parses a Netflix title and turns it into a WatchActivity.
+func ParseTitle(ctx context.Context, title string, reporter o11y.Reporter) *WatchActivity {
 	h := &WatchActivity{
-		Title:  title,
-		IsShow: titleDefaultRegex.MatchString(title),
+		Title:       title,
+		IsShow:      titleDefaultRegex.MatchString(title),
+		Date:        "",
+		EpisodeName: "",
 	}
 
 	if !h.IsShow {
@@ -70,7 +74,7 @@ func ParseTitle(title string, reporter o11y.Reporter) *WatchActivity {
 		h.EpisodeName = matches[0][3]
 
 		if reporter != nil {
-			reporter.SendMessage(
+			reporter.SendMessage(ctx,
 				fmt.Sprintf("Potentially weird title found: %s. Assuming it's a show named '%s' with an episode named '%s'",
 					title, h.Title, h.EpisodeName,
 				))
@@ -80,7 +84,7 @@ func ParseTitle(title string, reporter o11y.Reporter) *WatchActivity {
 	}
 
 	if reporter != nil {
-		reporter.SendMessage(fmt.Sprintf("Potentially weird title found: %s. Assuming it's a movie.", title))
+		reporter.SendMessage(ctx, fmt.Sprintf("Potentially weird title found: %s. Assuming it's a movie.", title))
 	}
 	h.IsShow = false
 	return h

@@ -1,3 +1,4 @@
+// Package main contains the entry point of the binary that handles user authentication
 package main
 
 import (
@@ -47,12 +48,12 @@ func run() (err error) {
 		finalURL = fmt.Sprintf("%s and enter the code: %s", authCode.VerificationURL, authCode.UserCode)
 	}
 	fmt.Printf("Please open the following URL in your browser:\n%s\n", finalURL)
-	fmt.Printf("You have %d seconds to complete the authentication...\n", authCode.ExpiresIn)
+	fmt.Printf("You have %d seconds to complete the authentication...\n", authCode.ExpiresInSecs)
 
 	tickerSecond := time.NewTicker(1 * time.Second)
-	tickerRetry := time.NewTicker(authCode.IntervalInSecs * time.Second)
+	tickerRetry := time.NewTicker(time.Duration(authCode.IntervalInSecs) * time.Second)
 
-	count := authCode.ExpiresIn
+	count := authCode.ExpiresInSecs
 	fmt.Print(count)
 
 	for {
@@ -61,7 +62,7 @@ func run() (err error) {
 			count--
 			if count <= 0 {
 				cancel()
-				return fmt.Errorf("authentication timed out. Please try again")
+				return errors.New("authentication timed out. Please try again")
 			}
 			fmt.Printf("\r\033[2K%d", count)
 		case <-tickerRetry.C:

@@ -95,12 +95,7 @@ jobs:
         id: restore-cache
         uses: './.github/actions/setup-go'
 
-      - run: |
-          go mod tidy
-          git diff --exit-code
-          go generate ./...
-          go mod tidy
-          git diff --exit-code
+      - run: task ci:lint
 
   test:
     if: needs.prepare-env.outputs.code-changed == 'true'

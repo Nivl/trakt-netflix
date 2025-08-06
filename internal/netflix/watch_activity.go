@@ -13,6 +13,8 @@ type WatchActivity struct {
 	IsShow      bool
 }
 
+// String implements the Stringer interface.
+// it returns a string representation of a WatchActivity.
 func (h *WatchActivity) String() string {
 	if h.IsShow {
 		return fmt.Sprintf("%s: %s", h.Title, h.EpisodeName)

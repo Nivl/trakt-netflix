@@ -1,6 +1,8 @@
+// Package slack provides a client for sending messages to Slack.
 package slack
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/ashwanthkumar/slack-go-webhook"
@@ -11,12 +13,14 @@ type Config struct {
 	WebhookURLs []string `env:"WEBHOOKS"`
 }
 
+// Client is a Slack client for sending messages.
 type Client struct {
 	webhookURLs []string
 	Username    string
 	IconEmoji   string
 }
 
+// NewClient creates a new Slack client.
 func NewClient(cfg Config) *Client {
 	return &Client{
 		webhookURLs: cfg.WebhookURLs,
@@ -25,11 +29,13 @@ func NewClient(cfg Config) *Client {
 	}
 }
 
-func (c *Client) SendMessage(msg string) error {
-	slog.Info(msg)
+// SendMessage sends a message to the registered Slack channels.
+// Noop if the client is nil.
+func (c *Client) SendMessage(ctx context.Context, msg string) {
+	slog.InfoContext(ctx, msg)
 
 	if c == nil {
-		return nil
+		return
 	}
 
 	var firstError error
@@ -44,8 +50,7 @@ func (c *Client) SendMessage(msg string) error {
 			if firstError == nil {
 				firstError = errs[0]
 			}
-			slog.Error("failed sending slack message", "errors", errs, "webhookURL", wh)
+			slog.ErrorContext(ctx, "failed sending slack message", "errors", errs, "webhookURL", wh)
 		}
 	}
-	return firstError
 }
