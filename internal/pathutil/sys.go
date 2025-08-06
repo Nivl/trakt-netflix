@@ -1,3 +1,4 @@
+// Package pathutil provides utility functions for working with file paths.
 package pathutil
 
 import (

@@ -23,10 +23,10 @@ func TestFetchHistory(t *testing.T) {
 	require.NoError(t, err)
 
 	mockctrl := gomock.NewController(t)
-	defer mockctrl.Finish()
+	t.Cleanup(mockctrl.Finish)
 
 	Doer := mocks.NewMockDoer(mockctrl)
-	Doer.EXPECT().Do(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+	Doer.EXPECT().Do(gomock.Any()).DoAndReturn(func(_ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       io.NopCloser(bytes.NewReader(data)),
@@ -44,13 +44,14 @@ func TestFetchHistory(t *testing.T) {
 		HTTP:             Doer,
 	}
 
-	traktClient, err := trakt.NewClient(trakt.ClientConfig{})
+	var traktCfg trakt.ClientConfig
+	traktClient, err := trakt.NewClient(traktCfg)
 	require.NoError(t, err)
 
 	c := New(traktClient, netflixClient, nil)
 	require.NoError(t, err)
 
-	err = c.FetchHistory(t.Context())
+	err = c.UpdateHistory(t.Context())
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -119,6 +120,8 @@ func TestFetchHistory(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			h := history.NewActivity
 			assert.Equal(t, tc.episode, h[i].EpisodeName)
 			assert.Equal(t, tc.name, h[i].Title)
@@ -131,6 +134,8 @@ func TestFetchHistory(t *testing.T) {
 }
 
 func TestFetchHistoryWithExistingData(t *testing.T) {
+	t.Parallel()
+
 	show1 := `Scott Pilgrim Takes Off: Scott Pilgrim Takes Off: "Whatever"`
 	show2 := `Ali Wong: Hard Knock Wife`
 	history := &netflix.History{
@@ -142,16 +147,17 @@ func TestFetchHistoryWithExistingData(t *testing.T) {
 			show1: {},
 			show2: {},
 		},
+		NewActivity: []*netflix.WatchActivity{},
 	}
 
 	data, err := os.ReadFile(filepath.Join("testdata", "netflix.html"))
 	require.NoError(t, err)
 
 	mockctrl := gomock.NewController(t)
-	defer mockctrl.Finish()
+	t.Cleanup(mockctrl.Finish)
 
 	Doer := mocks.NewMockDoer(mockctrl)
-	Doer.EXPECT().Do(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+	Doer.EXPECT().Do(gomock.Any()).DoAndReturn(func(_ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       io.NopCloser(bytes.NewReader(data)),
@@ -165,13 +171,14 @@ func TestFetchHistoryWithExistingData(t *testing.T) {
 		HTTP:             Doer,
 	}
 
-	traktClient, err := trakt.NewClient(trakt.ClientConfig{})
+	var traktCfg trakt.ClientConfig
+	traktClient, err := trakt.NewClient(traktCfg)
 	require.NoError(t, err)
 
 	c := New(traktClient, netflixClient, nil)
 	require.NoError(t, err)
 
-	err = c.FetchHistory(t.Context())
+	err = c.UpdateHistory(t.Context())
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -227,6 +234,8 @@ func TestFetchHistoryWithExistingData(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			h := history.NewActivity
 			assert.Equal(t, tc.episode, h[i].EpisodeName)
 			assert.Equal(t, tc.name, h[i].Title)

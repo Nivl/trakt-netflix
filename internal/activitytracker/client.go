@@ -2,6 +2,7 @@ package activitytracker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -20,7 +21,6 @@ var stringNormalizer = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.M
 
 // Client represents a client to interact with external services
 type Client struct {
-	slackWebhooks []string
 	traktClient   *trakt.Client
 	netflixClient *netflix.Client
 	slackClient   *slack.Client
@@ -38,8 +38,8 @@ func New(traktClient *trakt.Client, netflixClient *netflix.Client, slackClient *
 // Run fetches the viewing history from Netflix and marks it as
 // watched on Trakt
 func (c *Client) Run(ctx context.Context) error {
-	if err := c.FetchHistory(ctx); err != nil {
-		return fmt.Errorf("fetch history: %w", err)
+	if err := c.UpdateHistory(ctx); err != nil {
+		return err
 	}
 	c.MarkAsWatched(ctx)
 	if err := c.netflixClient.History.Write(); err != nil {
@@ -48,36 +48,38 @@ func (c *Client) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) FetchHistory(ctx context.Context) error {
-	err := c.netflixClient.FetchHistory(ctx, c.slackClient)
+// UpdateHistory fetches the viewing history from Netflix and
+// updates the local history.
+func (c *Client) UpdateHistory(ctx context.Context) error {
+	err := c.netflixClient.UpdateHistory(ctx, c.slackClient)
 	if err != nil {
-		return fmt.Errorf("fetch history: %w", err)
+		return fmt.Errorf("update history: %w", err)
 	}
 	return nil
 }
 
 // MarkAsWatched mark as watched all the provided media
 func (c *Client) MarkAsWatched(ctx context.Context) {
-	medias := &trakt.MarkAsWatchedRequest{}
+	medias := new(trakt.MarkAsWatchedRequest)
 	for _, h := range c.netflixClient.History.NewActivity {
 		err := c.searchMedia(ctx, h, medias)
 		if err != nil {
-			c.slackClient.SendMessage("Trakt: Couldn't find: " + h.String() + ".\nError: " + err.Error() + "\nPlease add manually.")
-			slog.Error("media search failed", "isShow", h.IsShow, "media", h.String(), "error", err.Error())
+			c.slackClient.SendMessage(ctx, "Trakt: Couldn't find: "+h.String()+".\nError: "+err.Error()+"\nPlease add manually.")
+			slog.ErrorContext(ctx, "media search failed", "isShow", h.IsShow, "media", h.String(), "error", err.Error())
 			continue
 		}
-		c.slackClient.SendMessage("Adding to current watchlist batch: " + h.String())
+		c.slackClient.SendMessage(ctx, "Adding to current watchlist batch: "+h.String())
 
 		time.Sleep(100 * time.Millisecond)
 	}
 
 	_, err := c.traktClient.MarkAsWatched(ctx, medias)
 	if err != nil {
-		c.slackClient.SendMessage("Trakt: Couldn't mark the batch as watched. Error: " + err.Error())
-		slog.Error("failed to watch", "error", err.Error(), "medias", medias)
+		c.slackClient.SendMessage(ctx, "Trakt: Couldn't mark the batch as watched. Error: "+err.Error())
+		slog.ErrorContext(ctx, "failed to watch", "error", err.Error(), "medias", medias)
 		return
 	}
-	c.slackClient.SendMessage("Batch processed successfully")
+	c.slackClient.SendMessage(ctx, "Batch processed successfully")
 	c.netflixClient.History.ClearNewActivity()
 }
 
@@ -95,7 +97,8 @@ func (c *Client) searchMedia(ctx context.Context, h *netflix.WatchActivity, medi
 		return fmt.Errorf("searching for %s: %w", h.SearchQuery(), err)
 	}
 
-	for _, r := range response.Results {
+	for i := range response.Results {
+		r := &response.Results[i]
 		if r.Type == trakt.SearchTypeMovie {
 			if stringMatches(r.Movie.Title, h.Title) {
 				medias.Movies = append(medias.Movies, trakt.MarkAsWatched{
@@ -118,7 +121,7 @@ func (c *Client) searchMedia(ctx context.Context, h *netflix.WatchActivity, medi
 			continue
 		}
 	}
-	return fmt.Errorf("not found")
+	return errors.New("not found")
 }
 
 // Sometime the title don't match due to unicode characters.

@@ -1,3 +1,5 @@
+// Package main contains the entrypoint of the binary that handles the service
+// that tracks watch activity
 package main
 
 import (
@@ -6,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/Nivl/trakt-netflix/internal/activitytracker"
 	"github.com/Nivl/trakt-netflix/internal/netflix"
@@ -16,21 +19,21 @@ import (
 )
 
 type appConfig struct {
-	Netflix   netflix.Config     `env:",prefix=NETFLIX_"`
 	Trakt     trakt.ClientConfig `env:",prefix=TRAKT_"`
 	Slack     slack.Config       `env:",prefix=SLACK_"`
+	Netflix   netflix.Config     `env:",prefix=NETFLIX_"`
 	CronSpecs string             `env:"CRON_SPECS,default=@hourly"`
 }
 
 func main() {
-	if err := run(); err != nil {
-		slog.Error("something went wrong", "error", err.Error())
+	ctx := context.Background()
+	if err := run(ctx); err != nil {
+		slog.ErrorContext(ctx, "something went wrong", "error", err.Error())
 		os.Exit(1)
 	}
 }
 
-func run() (err error) {
-	ctx := context.Background()
+func run(ctx context.Context) (err error) {
 	var cfg appConfig
 	if err = envconfig.Process(ctx, &cfg); err != nil {
 		return fmt.Errorf("parse the env: %w", err)
@@ -49,10 +52,14 @@ func run() (err error) {
 	slackClient := slack.NewClient(cfg.Slack)
 
 	c := activitytracker.New(traktClient, netflixClient, slackClient)
-	slog.Info("Trakt info: starting")
+	slog.InfoContext(ctx, "Trakt info: starting")
 
 	crn := cron.New()
-	err = crn.AddFunc(cfg.CronSpecs, func() { process(c) })
+	err = crn.AddFunc(cfg.CronSpecs, func() {
+		processCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+		defer cancel()
+		process(processCtx, c)
+	})
 	if err != nil {
 		return fmt.Errorf("setup cron: %w", err)
 	}
@@ -61,16 +68,15 @@ func run() (err error) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
 	<-quit
-	slog.Info("Trakt info: stopping")
+	slog.InfoContext(ctx, "Trakt info: stopping")
 
 	crn.Stop()
 	return nil
 }
 
-func process(c *activitytracker.Client) {
-	ctx := context.Background()
+func process(ctx context.Context, c *activitytracker.Client) {
 	if err := c.Run(ctx); err != nil {
-		slog.Info("An error occurred during a run", "error", err)
+		slog.InfoContext(ctx, "An error occurred during a run", "error", err)
 		return
 	}
 }

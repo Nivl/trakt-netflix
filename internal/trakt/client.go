@@ -1,3 +1,4 @@
+// Package trakt provides a client for interacting with the Trakt API.
 package trakt
 
 import (
@@ -22,11 +23,11 @@ const traktErrorCodeURL = "https://trakt.docs.apiary.io/#introduction/status-cod
 
 // ErrPendingAuthorization is returned when the authorization is still
 // pending, waiting for the user to complete the authorization flow.
-var ErrPendingAuthorization = errors.New("pending authorization.")
+var ErrPendingAuthorization = errors.New("pending authorization")
 
-// TraktAccessToken represents the access token structure returned by
+// AccessTokenInfo represents the access token structure returned by
 // the Trakt API after a successful authentication or token refresh.
-type TraktAccessToken struct {
+type AccessTokenInfo struct {
 	AccessToken  secret.Secret `json:"access_token"`
 	TokenType    string        `json:"token_type"`
 	ExpiresIn    int           `json:"expires_in"`
@@ -48,7 +49,7 @@ type Client struct {
 	// redirectURI is the redirect URI for the Trakt APP.
 	redirectURI string
 
-	auth         TraktAccessToken
+	auth         AccessTokenInfo
 	authFilePath string
 }
 
@@ -71,13 +72,13 @@ func NewClient(cfg ClientConfig) (clt *Client, err error) {
 
 	// TODO(melvin): Use something more secure than ReadFile, to avoid
 	// loading a huge file in memory.
-	f, err := os.Open(authFilePath)
+	f, err := os.Open(authFilePath) //nolint:gosec // G304: file inclusion via variable is what we want here
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("open auth file: %w", err)
 	}
-	var authTokens TraktAccessToken
+	var authTokens AccessTokenInfo
 	if !os.IsNotExist(err) {
-		defer f.Close()
+		defer errutil.RunAndSetError(f.Close, &err, "close auth file")
 		if err := json.NewDecoder(f).Decode(&authTokens); err != nil {
 			return nil, fmt.Errorf("decode auth file: %w", err)
 		}
@@ -124,7 +125,7 @@ func withNoAuth() requestOptionsFunc {
 // request sends an HTTP request to the Trakt API and returns the response.
 // It handles the authentication automatically, refreshing the access token
 // if it has expired or is invalid.
-func (c *Client) request(ctx context.Context, method string, path string, body json.RawMessage, opts ...requestOptionsFunc) (resp *http.Response, respBody []byte, err error) {
+func (c *Client) request(ctx context.Context, method, path string, body json.RawMessage, opts ...requestOptionsFunc) (resp *http.Response, respBody []byte, err error) {
 	var options requestOptions
 	for _, o := range opts {
 		o(&options)
@@ -144,7 +145,7 @@ func (c *Client) request(ctx context.Context, method string, path string, body j
 		if err != nil {
 			return nil, nil, fmt.Errorf("refresh token: %w", err)
 		}
-		newOpts := append(opts, withNoRetryOnAuthFailure())
+		newOpts := append(opts, withNoRetryOnAuthFailure()) //nolint:gocritic // appendAssign it's expected that we create a new list
 		return c.request(ctx, method, path, body, newOpts...)
 	}
 
@@ -155,7 +156,7 @@ func (c *Client) request(ctx context.Context, method string, path string, body j
 // Trakt API and returns the response and body.
 // It is used internally by the Client methods to handle the actual HTTP
 // communication.
-func (c *Client) _request(ctx context.Context, method string, path string, body io.Reader, options requestOptions) (resp *http.Response, respBody []byte, err error) {
+func (c *Client) _request(ctx context.Context, method, path string, body io.Reader, options requestOptions) (resp *http.Response, respBody []byte, err error) {
 	if strings.HasSuffix(c.baseURL, "/") && strings.HasPrefix(path, "/") {
 		path = path[1:]
 	}
@@ -166,8 +167,8 @@ func (c *Client) _request(ctx context.Context, method string, path string, body 
 		return nil, nil, fmt.Errorf("create new HTTP request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("trakt-api-version", "2")
-	req.Header.Set("trakt-api-key", c.clientID)
+	req.Header.Set("Trakt-Api-Version", "2")
+	req.Header.Set("Trakt-Api-Key", c.clientID)
 	if !options.noAuth {
 		req.Header.Set("Authorization", "Bearer "+c.auth.AccessToken.Get())
 	}
@@ -208,17 +209,17 @@ type GenerateAuthCodeRequest struct {
 // GenerateAuthCodeResponse contains the response from the
 // GenerateAuthCode method.
 type GenerateAuthCodeResponse struct {
-	DeviceCode      string        `json:"device_code"`
-	UserCode        string        `json:"user_code"`
-	VerificationURL string        `json:"verification_url"`
-	ExpiresIn       int           `json:"expires_in"`
-	IntervalInSecs  time.Duration `json:"interval"`
+	DeviceCode      string `json:"device_code"`
+	UserCode        string `json:"user_code"`
+	VerificationURL string `json:"verification_url"`
+	ExpiresInSecs   int    `json:"expires_in"`
+	IntervalInSecs  int    `json:"interval"`
 }
 
 // GenerateAuthCode generates an authentication code for the user to
 // authorize the application.
 func (c *Client) GenerateAuthCode(ctx context.Context) (*GenerateAuthCodeResponse, error) {
-	resp, body, err := c.post(ctx, "/oauth/device/code", &GenerateAuthCodeRequest{
+	resp, body, err := c.post(ctx, "/oauth/device/code", &GenerateAuthCodeRequest{ //nolint:bodyclose // the body is closed in _request
 		ClientID: c.clientID,
 	}, withNoAuth())
 	if err != nil {
@@ -247,7 +248,7 @@ type GetAccessTokenRequest struct {
 
 // GetAccessTokenResponse contains the response from the GetAccessToken method.
 type GetAccessTokenResponse struct {
-	TraktAccessToken
+	AccessTokenInfo
 }
 
 // GetAccessToken retrieves the access token using the device code
@@ -261,7 +262,7 @@ type GetAccessTokenResponse struct {
 // auth file on disk.
 func (c *Client) GetAccessToken(ctx context.Context, deviceCode string) (*GetAccessTokenResponse, error) {
 	// https://trakt.docs.apiary.io/#reference/authentication-devices/get-token/poll-for-the-access_token
-	resp, body, err := c.post(ctx, "/oauth/device/token", &GetAccessTokenRequest{
+	resp, body, err := c.post(ctx, "/oauth/device/token", &GetAccessTokenRequest{ //nolint:bodyclose // the body is closed in _request
 		ClientID:     c.clientID,
 		ClientSecret: c.clientSecret.Get(),
 		DeviceCode:   deviceCode,
@@ -283,7 +284,7 @@ func (c *Client) GetAccessToken(ctx context.Context, deviceCode string) (*GetAcc
 		return nil, err
 	}
 
-	c.auth = accessTokenResp.TraktAccessToken
+	c.auth = accessTokenResp.AccessTokenInfo
 	if err = c.WriteAuthFile(); err != nil {
 		return nil, fmt.Errorf("write auth file on disk: %w", err)
 	}
@@ -304,14 +305,14 @@ type RefreshTokenRequest struct {
 // RefreshTokenResponse contains the response from the RefreshToken method,
 // which includes the new access token.
 type RefreshTokenResponse struct {
-	TraktAccessToken
+	AccessTokenInfo
 }
 
 // RefreshToken refreshes the access token using the refresh token.
 // Once refreshed, the access token is automatically written to the
 // auth file on disk.
 func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*RefreshTokenResponse, error) {
-	resp, body, err := c.post(ctx, "/oauth/token", &RefreshTokenRequest{
+	resp, body, err := c.post(ctx, "/oauth/token", &RefreshTokenRequest{ //nolint:bodyclose // the body is closed in _request
 		ClientID:     c.clientID,
 		ClientSecret: c.clientSecret.Get(),
 		RedirectURI:  c.redirectURI,
@@ -331,7 +332,7 @@ func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*Refres
 		return nil, err
 	}
 
-	c.auth = refreshTokenResp.TraktAccessToken
+	c.auth = refreshTokenResp.AccessTokenInfo
 	if err = c.WriteAuthFile(); err != nil {
 		return nil, fmt.Errorf("write auth file on disk: %w", err)
 	}
@@ -353,7 +354,7 @@ type SearchResponse struct {
 func (c *Client) Search(ctx context.Context, typ SearchTypes, query string) (*SearchResponse, error) {
 	url := fmt.Sprintf("/search/%s?query=%s", typ, query)
 
-	resp, body, err := c.get(ctx, url, withNoAuth())
+	resp, body, err := c.get(ctx, url, withNoAuth()) //nolint:bodyclose // the body is closed in _request
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
@@ -370,11 +371,13 @@ func (c *Client) Search(ctx context.Context, typ SearchTypes, query string) (*Se
 	return &searchResponse, nil
 }
 
+// MarkAsWatchedRequest represents a request to mark items as watched.
 type MarkAsWatchedRequest struct {
 	Movies   []MarkAsWatched `json:"movies"`
 	Episodes []MarkAsWatched `json:"episodes"`
 }
 
+// MarkAsWatchedResponse represents the response from the MarkAsWatched method.
 type MarkAsWatchedResponse struct {
 	Added struct {
 		Movies   int `json:"movies,omitempty"`
@@ -392,7 +395,7 @@ type MarkAsWatchedResponse struct {
 
 // MarkAsWatched marks a media item as watched on Trakt.
 func (c *Client) MarkAsWatched(ctx context.Context, req *MarkAsWatchedRequest) (*MarkAsWatchedResponse, error) {
-	resp, body, err := c.post(ctx, "/sync/history", req)
+	resp, body, err := c.post(ctx, "/sync/history", req) //nolint:bodyclose // the body is closed in _request
 	if err != nil {
 		return nil, fmt.Errorf("mark as watched: %w", err)
 	}
@@ -409,11 +412,12 @@ func (c *Client) MarkAsWatched(ctx context.Context, req *MarkAsWatchedRequest) (
 	return &response, nil
 }
 
-// unsecuredTraktAccessToken is a struct that contains the access token
+// unsecuredAccessTokenInfo is a struct that contains the access token
 // and refresh token in plain text, so that it can be written to the
 // auth file on disk.
-type unsecuredTraktAccessToken struct {
-	TraktAccessToken
+type unsecuredAccessTokenInfo struct {
+	AccessTokenInfo
+
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
@@ -421,10 +425,10 @@ type unsecuredTraktAccessToken struct {
 // WriteAuthFile writes the current authentication data to the
 // auth file on disk.
 func (c *Client) WriteAuthFile() error {
-	auth := unsecuredTraktAccessToken{
-		TraktAccessToken: c.auth,
-		AccessToken:      c.auth.AccessToken.Get(),
-		RefreshToken:     c.auth.RefreshToken.Get(),
+	auth := unsecuredAccessTokenInfo{
+		AccessTokenInfo: c.auth,
+		AccessToken:     c.auth.AccessToken.Get(),
+		RefreshToken:    c.auth.RefreshToken.Get(),
 	}
 	data, err := json.Marshal(auth)
 	if err != nil {
