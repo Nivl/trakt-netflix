@@ -126,6 +126,10 @@ linters:
       - path: _test\.go
         text: "fieldalignment: struct"
 
+      - linters:
+          - exhaustruct
+        path: internal/netflix/parse_title_test.go
+
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

@@ -11,6 +11,7 @@ type WatchActivity struct {
 	Title       string
 	EpisodeName string
 	IsShow      bool
+	Season      int
 }
 
 // String implements the Stringer interface.
