@@ -101,25 +101,29 @@ func (c *Client) searchMedia(ctx context.Context, h *netflix.WatchActivity, medi
 	for i := range response.Results {
 		r := &response.Results[i]
 		if r.Type == trakt.SearchTypeMovie {
-			if stringMatches(r.Movie.Title, h.Title) {
-				medias.Movies = append(medias.Movies, trakt.MarkAsWatched{
-					IDs:       r.Movie.IDs,
-					WatchedAt: now,
-				})
-				return nil
+			if !stringMatches(r.Movie.Title, h.Title) {
+				continue
 			}
-			continue
+
+			medias.Movies = append(medias.Movies, trakt.MarkAsWatched{
+				IDs:       r.Movie.IDs,
+				WatchedAt: now,
+			})
+			return nil
 		}
 
 		if r.Type == trakt.SearchTypeEpisode {
-			if stringMatches(r.Show.Title, h.Title) && stringMatches(r.Episode.Title, h.EpisodeName) {
-				medias.Episodes = append(medias.Episodes, trakt.MarkAsWatched{
-					IDs:       r.Episode.IDs,
-					WatchedAt: now,
-				})
-				return nil
+			if !stringMatches(r.Show.Title, h.Title) || !stringMatches(r.Episode.Title, h.EpisodeName) {
+				continue
 			}
-			continue
+			if h.Season > 0 && r.Episode.Season != h.Season {
+				continue
+			}
+			medias.Episodes = append(medias.Episodes, trakt.MarkAsWatched{
+				IDs:       r.Episode.IDs,
+				WatchedAt: now,
+			})
+			return nil
 		}
 	}
 	return errors.New("not found")

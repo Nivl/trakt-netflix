@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strconv"
 
 	"github.com/Nivl/trakt-netflix/internal/o11y"
 )
@@ -16,11 +17,9 @@ var (
 
 // ParseTitle parses a Netflix title and turns it into a WatchActivity.
 func ParseTitle(ctx context.Context, title string, reporter o11y.Reporter) *WatchActivity {
-	h := &WatchActivity{
-		Title:       title,
-		IsShow:      titleDefaultRegex.MatchString(title),
-		Date:        "",
-		EpisodeName: "",
+	h := &WatchActivity{ //nolint:exhaustruct // The point of this function is to slowly build that object
+		Title:  title,
+		IsShow: titleDefaultRegex.MatchString(title),
 	}
 
 	if !h.IsShow {
@@ -57,6 +56,8 @@ func ParseTitle(ctx context.Context, title string, reporter o11y.Reporter) *Watc
 	if len(matches) == 1 && len(matches[0]) == 9 {
 		h.Title = matches[0][1]
 		h.EpisodeName = matches[0][8]
+		// It's expected that it may fail if there is no season number
+		h.Season, _ = strconv.Atoi(matches[0][5])
 		return h
 	}
 
