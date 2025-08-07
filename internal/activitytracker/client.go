@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -17,7 +18,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-var stringNormalizer = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+var wordStartingWithI = regexp.MustCompile(`(?m)(^|[\s\p{P}])i`)
 
 // Client represents a client to interact with external services
 type Client struct {
@@ -64,7 +65,7 @@ func (c *Client) MarkAsWatched(ctx context.Context) {
 	for _, h := range c.netflixClient.History.NewActivity {
 		err := c.searchMedia(ctx, h, medias)
 		if err != nil {
-			c.slackClient.SendMessage(ctx, "Trakt: Couldn't find: "+h.String()+".\nError: "+err.Error()+"\nPlease add manually.")
+			c.slackClient.SendMessage(ctx, "Trakt: Couldn't find: "+h.String()+"\nError: "+err.Error()+"\nPlease add manually.")
 			slog.ErrorContext(ctx, "media search failed", "isShow", h.IsShow, "media", h.String(), "error", err.Error())
 			continue
 		}
@@ -141,6 +142,7 @@ func stringMatches(a, b string) bool {
 		return true
 	}
 
+	stringNormalizer := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	normalizedA, _, err := transform.String(stringNormalizer, a)
 	if err != nil {
 		return false
@@ -149,5 +151,40 @@ func stringMatches(a, b string) bool {
 	if err != nil {
 		return false
 	}
+	if strings.EqualFold(normalizedA, normalizedB) {
+		return true
+	}
+
+	// Some characters aren't in the trakt title
+	charsToReplace := []string{
+		"!", // Example: Netflix title "Arrested Development: Ready, Aim, Marry Me!" vs Trakt title "Arrested Development: Ready, Aim, Marry Me"
+	}
+
+	// Special cases
+
+	// if the title contains "!", then we need to take into account Spanish
+	// Ex. Arrested Development iAmigos!
+	// In that example they used an "i" and not a "¡", which makes
+	// everything a bit awkward since it forces us to remove all "i"s.
+	if strings.Contains(normalizedA, "!") || strings.Contains(normalizedB, "!") {
+		// Remove 'i' only when it appears at the beginning of a word (likely mistyped '¡')
+
+		normalizedA = wordStartingWithI.ReplaceAllStringFunc(normalizedA, func(s string) string {
+			// Keep the prefix (space or punctuation), drop the 'i'
+			return s[:len(s)-1]
+		})
+		normalizedB = wordStartingWithI.ReplaceAllStringFunc(normalizedB, func(s string) string {
+			return s[:len(s)-1]
+		})
+
+		normalizedA = strings.ReplaceAll(normalizedA, "¡", "")
+		normalizedB = strings.ReplaceAll(normalizedB, "¡", "")
+	}
+
+	for _, char := range charsToReplace {
+		normalizedA = strings.ReplaceAll(normalizedA, char, "")
+		normalizedB = strings.ReplaceAll(normalizedB, char, "")
+	}
+
 	return strings.EqualFold(normalizedA, normalizedB)
 }
