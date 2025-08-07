@@ -278,9 +278,15 @@ func TestStringMatches(t *testing.T) {
 			shouldMatch: true,
 		},
 		{
+			name:        "Shouldn't create weird situation when removing 'I's",
+			netflix:     "iiPhone!",
+			trakt:       "iPhone",
+			shouldMatch: true,
+		},
+		{
 			name:        "Spanish Exclamation using ¡",
-			netflix:     "Arrested Development iAmigos!",
-			trakt:       "Arrested Development ¡Amigos!",
+			netflix:     "Arrested Development ¡Amigos!",
+			trakt:       "Arrested Development Amigos",
 			shouldMatch: true,
 		},
 	}

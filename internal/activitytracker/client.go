@@ -157,26 +157,34 @@ func stringMatches(a, b string) bool {
 
 	// Some characters aren't in the trakt title
 	charsToReplace := []string{
-		"!", // Example: Netflix title "Arrested Development: Ready, Aim, Marry Me!" vs Trakt title "Arrested Development: Ready, Aim, Marry Me"
+		// Netflix title: "Arrested Development: Ready, Aim, Marry Me!"
+		// Trakt title: "Arrested Development: Ready, Aim, Marry Me"
+		"!",
 	}
 
 	// Special cases
 
 	// if the title contains "!", then we need to take into account Spanish
-	// Ex. Arrested Development iAmigos!
-	// In that example they used an "i" and not a "¡", which makes
-	// everything a bit awkward since it forces us to remove all "i"s.
+	// Ex.
+	//   Netflix title: "Arrested Development iAmigos!"
+	//   Trakt title: "Arrested Development Amigos"
+	//
+	// In that example they used an "i" and not a "¡", which is a bit
+	// awkward since it forces us to removes all "i"s at the beginning
+	// of words.
 	if strings.Contains(normalizedA, "!") || strings.Contains(normalizedB, "!") {
-		// Remove 'i' only when it appears at the beginning of a word (likely mistyped '¡')
-
+		// We DO NOT remove the 'i's in B to avoid potentially breaking
+		// valid titles
+		// Ex:
+		//   A: iiPhone!
+		//   B: iPhone
+		// If we cleanup both A and B we would end with
+		//   A: iPhone
+		//   B: Phone
 		normalizedA = wordStartingWithI.ReplaceAllStringFunc(normalizedA, func(s string) string {
 			// Keep the prefix (space or punctuation), drop the 'i'
 			return s[:len(s)-1]
 		})
-		normalizedB = wordStartingWithI.ReplaceAllStringFunc(normalizedB, func(s string) string {
-			return s[:len(s)-1]
-		})
-
 		normalizedA = strings.ReplaceAll(normalizedA, "¡", "")
 		normalizedB = strings.ReplaceAll(normalizedB, "¡", "")
 	}
