@@ -64,7 +64,7 @@ func (c *Client) MarkAsWatched(ctx context.Context) {
 	for _, h := range c.netflixClient.History.NewActivity {
 		err := c.searchMedia(ctx, h, medias)
 		if err != nil {
-			c.slackClient.SendMessage(ctx, "Trakt: Couldn't find: "+h.String()+".\nError: "+err.Error()+"\nPlease add manually.")
+			c.slackClient.SendMessage(ctx, "Trakt: Couldn't find: "+h.String()+"\nError: "+err.Error()+"\nPlease add manually.")
 			slog.ErrorContext(ctx, "media search failed", "isShow", h.IsShow, "media", h.String(), "error", err.Error())
 			continue
 		}
@@ -149,5 +149,33 @@ func stringMatches(a, b string) bool {
 	if err != nil {
 		return false
 	}
+	if strings.EqualFold(normalizedA, normalizedB) {
+		return true
+	}
+
+	// Some character aren't in the trakt title
+	charsToReplace := []string{
+		"!", // Arrested Development Ready, Aim, Marry Me!
+	}
+
+	// Special cases
+
+	// if the title contains "!", then we need to take into account Spanish
+	// Ex. Arrested Development "iAmigos!"
+	// In that example they used a "i" and not a "¡", which makes
+	// everything a bit awkward since it forces us to remove all "i"s.
+	if strings.Contains(normalizedA, "!") || strings.Contains(normalizedB, "!") {
+		normalizedA = strings.ReplaceAll(normalizedA, "i", "")
+		normalizedB = strings.ReplaceAll(normalizedB, "i", "")
+
+		normalizedA = strings.ReplaceAll(normalizedA, "¡", "")
+		normalizedB = strings.ReplaceAll(normalizedB, "¡", "")
+	}
+
+	for _, char := range charsToReplace {
+		normalizedA = strings.ReplaceAll(normalizedA, char, "")
+		normalizedB = strings.ReplaceAll(normalizedB, char, "")
+	}
+
 	return strings.EqualFold(normalizedA, normalizedB)
 }
