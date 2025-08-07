@@ -18,10 +18,16 @@ WORKDIR /build
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /app github.com/Nivl/trakt-netflix/cmd/service
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /app github.com/Nivl/trakt-netflix/cmd/auth
 
+RUN useradd -u 10000 nonroot
+
 # Create the final image
 FROM scratch
-USER nonroot
+
 COPY --from=builder /app /app
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 VOLUME /config
+
+COPY --from=0 /etc/passwd /etc/passwd
+USER nonroot
+
 CMD ["/app"]
