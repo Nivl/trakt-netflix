@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -17,7 +18,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-var stringNormalizer = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+var wordStartingWithI = regexp.MustCompile(`(?m)(^|[\s\p{P}])i`)
 
 // Client represents a client to interact with external services
 type Client struct {
@@ -141,6 +142,7 @@ func stringMatches(a, b string) bool {
 		return true
 	}
 
+	stringNormalizer := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	normalizedA, _, err := transform.String(stringNormalizer, a)
 	if err != nil {
 		return false
@@ -161,17 +163,17 @@ func stringMatches(a, b string) bool {
 	// Special cases
 
 	// if the title contains "!", then we need to take into account Spanish
-	// Ex. Arrested Development "iAmigos!"
+	// Ex. Arrested Development iAmigos!
 	// In that example they used an "i" and not a "¡", which makes
 	// everything a bit awkward since it forces us to remove all "i"s.
 	if strings.Contains(normalizedA, "!") || strings.Contains(normalizedB, "!") {
 		// Remove 'i' only when it appears at the beginning of a word (likely mistyped '¡')
-		re := regexp.MustCompile(`(?m)(^|[\s\p{P}])i`)
-		normalizedA = re.ReplaceAllStringFunc(normalizedA, func(s string) string {
+
+		normalizedA = wordStartingWithI.ReplaceAllStringFunc(normalizedA, func(s string) string {
 			// Keep the prefix (space or punctuation), drop the 'i'
 			return s[:len(s)-1]
 		})
-		normalizedB = re.ReplaceAllStringFunc(normalizedB, func(s string) string {
+		normalizedB = wordStartingWithI.ReplaceAllStringFunc(normalizedB, func(s string) string {
 			return s[:len(s)-1]
 		})
 

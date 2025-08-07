@@ -243,3 +243,54 @@ func TestFetchHistoryWithExistingData(t *testing.T) {
 		})
 	}
 }
+
+func TestStringMatches(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name        string
+		netflix     string
+		trakt       string
+		shouldMatch bool
+	}{
+		{
+			name:        "Accent",
+			netflix:     "Arrested Development: Beef Consomme",
+			trakt:       "Arrested Development: Beef Consommé",
+			shouldMatch: true,
+		},
+		{
+			name:        "Different case",
+			netflix:     "Arrested Development: Justice is Blind",
+			trakt:       "Arrested Development: Justice Is Blind",
+			shouldMatch: true,
+		},
+		{
+			name:        "Different punctuation",
+			netflix:     "Arrested Development: Ready, Aim, Marry Me!",
+			trakt:       "Arrested Development: Ready, Aim, Marry Me",
+			shouldMatch: true,
+		},
+		{
+			name:        "Spanish Exclamation using i",
+			netflix:     "Arrested Development iAmigos!",
+			trakt:       "Arrested Development Amigos",
+			shouldMatch: true,
+		},
+		{
+			name:        "Spanish Exclamation using ¡",
+			netflix:     "Arrested Development iAmigos!",
+			trakt:       "Arrested Development ¡Amigos!",
+			shouldMatch: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			res := stringMatches(tc.netflix, tc.trakt)
+			assert.Equal(t, tc.shouldMatch, res)
+		})
+	}
+}
