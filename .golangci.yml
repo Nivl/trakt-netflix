@@ -97,7 +97,11 @@ linters:
 
       - linters:
           - forbidigo
-        path: cmd/auth/main.go # we use Printf to output messages to the user
+        path: cmd/ # we use Printf to output messages to the user
+
+      - linters:
+          - forbidigo
+        path: internal/ui # we use Printf to output messages to the user
 
       - linters:
           - recvcheck

@@ -14,6 +14,7 @@ import (
 	"github.com/Nivl/trakt-netflix/internal/netflix"
 	"github.com/Nivl/trakt-netflix/internal/slack"
 	"github.com/Nivl/trakt-netflix/internal/trakt"
+	"github.com/Nivl/trakt-netflix/internal/ui"
 	"github.com/robfig/cron"
 	"github.com/sethvargo/go-envconfig"
 )
@@ -50,6 +51,12 @@ func run(ctx context.Context) (err error) {
 	}
 
 	slackClient := slack.NewClient(cfg.Slack)
+
+	if !traktClient.IsAuthenticated() {
+		if err = ui.Authenticate(ctx, traktClient); err != nil {
+			return fmt.Errorf("authenticate: %w", err)
+		}
+	}
 
 	c := activitytracker.New(traktClient, netflixClient, slackClient)
 	slog.InfoContext(ctx, "Trakt info: starting")
