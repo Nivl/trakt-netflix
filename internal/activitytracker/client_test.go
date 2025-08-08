@@ -289,6 +289,12 @@ func TestStringMatches(t *testing.T) {
 			trakt:       "Arrested Development Amigos",
 			shouldMatch: true,
 		},
+		{
+			name:        "using space instead-of-dashes",
+			netflix:     "Arrested Development: Forget Me Now",
+			trakt:       "Arrested Development: Forget-Me-Now",
+			shouldMatch: true,
+		},
 	}
 
 	for _, tc := range testCases {

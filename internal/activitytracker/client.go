@@ -198,5 +198,13 @@ func stringMatches(a, b string) bool {
 		normalizedB = strings.ReplaceAll(normalizedB, char, "")
 	}
 
+	// Another edge case we'd rather keep for the end
+	// Sometime Netflix titles use spaces instead of dashes:
+	// Ex.
+	//   Netflix title: "Arrested Development: Forget Me Now"
+	//   Trakt title: "Arrested Development: Forget-Me-Now"
+	normalizedA = strings.ReplaceAll(normalizedA, " ", "-")
+	normalizedB = strings.ReplaceAll(normalizedB, " ", "-")
+
 	return strings.EqualFold(normalizedA, normalizedB)
 }
