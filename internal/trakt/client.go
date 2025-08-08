@@ -436,3 +436,8 @@ func (c *Client) WriteAuthFile() error {
 	}
 	return os.WriteFile(c.authFilePath, data, 0o600)
 }
+
+// IsAuthenticated checks if the client is authenticated.
+func (c *Client) IsAuthenticated() bool {
+	return c.auth.CreatedAt != 0
+}

@@ -1,12 +1,18 @@
 # Trakt-netflix
 
-Tool to sync Netlfix with Trakt.
+Cron job to sync Netflix with Trakt.
 
 ## Usage
 
 This is meant to be run as a cron job.
 
 On the first run, the script will mark as watched the last 20 movies/episodes you watched on Netflix.
+
+###  Getting Started
+
+You first need to create a Trakt app at https://trakt.tv/oauth/applications/new. There isn't really a way out of it, trying to parse the website directly causes *a ton* of mismatches.
+
+The first time you start the service, it will prompt you to authenticate with Trakt. Follow the instructions to complete the authentication process. This will create a `trakt_auth.json` file in the current directory.
 
 ### Environment variables
 | ENV | Required | Format | Info |
@@ -17,18 +23,6 @@ On the first run, the script will mark as watched the last 20 movies/episodes yo
 | TRAKT_CLIENT_ID | required |  | Client ID of your trakt app |
 | TRAKT_CLIENT_SECRET | required | | Client Secret of your trakt app |
 | SLACK_WEBHOOKS | optional | webhook1,webhook2 | |
-
-###  Getting Started
-
-You first need to create a Trakt app at https://trakt.tv/oauth/applications/new. There isn't really a way out of it, trying to parse the website directly causes *a ton* of mismatches.
-
-You then need to create an auth file by running the cmd/auth command:
-
-```bash
-TRAKT_CLIENT_ID=xxx TRAKT_CLIENT_SECRET=yyy TRAKT_REDIRECT_URI=xxx go run github.com/Nivl/trakt-netflix/cmd/auth
-```
-
-This will create a `trakt_auth.json` file in the current directory.
 
 ### setup with Docker Compose
 
@@ -48,5 +42,3 @@ services:
     volumes:
       - /path/to/config:/config
 ```
-
-Make sure that `trakt_auth.json` is in the `/path/to/config` directory.
