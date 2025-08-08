@@ -23,6 +23,7 @@ The first time you start the service, it will prompt you to authenticate with Tr
 | TRAKT_CLIENT_ID | required |  | Client ID of your trakt app |
 | TRAKT_CLIENT_SECRET | required | | Client Secret of your trakt app |
 | SLACK_WEBHOOKS | optional | webhook1,webhook2 | |
+| CRON_SPECS | optional | | Defaults to @hourly see [Wikipedia](https://en.wikipedia.org/wiki/Cron) for format, Non-standard format are also accepted |
 
 ### setup with Docker Compose
 
