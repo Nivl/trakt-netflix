@@ -141,21 +141,26 @@ func (c *Client) searchMedia(ctx context.Context, h *netflix.WatchActivity, medi
 // For example,
 // On Netflix: "Arrested Development: Justice is Blind"
 // On Trakt: "Arrested Development: Justice Is Blind"
-func stringMatches(a, b string) bool {
-	if strings.EqualFold(a, b) {
+//
+// There are a ton of other edge cases we need to account for.
+func stringMatches(netflixTitle, traktTitle string) bool {
+	// Netflix titles sometimes use "..." to indicate a longer title.
+	titleIsPartial := strings.HasSuffix(netflixTitle, "...") && !strings.HasSuffix(traktTitle, "...")
+
+	if areEqual(netflixTitle, traktTitle, titleIsPartial) {
 		return true
 	}
 
 	stringNormalizer := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
-	normalizedA, _, err := transform.String(stringNormalizer, a)
+	netflixTitle, _, err := transform.String(stringNormalizer, netflixTitle)
 	if err != nil {
 		return false
 	}
-	normalizedB, _, err := transform.String(stringNormalizer, b)
+	traktTitle, _, err = transform.String(stringNormalizer, traktTitle)
 	if err != nil {
 		return false
 	}
-	if strings.EqualFold(normalizedA, normalizedB) {
+	if areEqual(netflixTitle, traktTitle, titleIsPartial) {
 		return true
 	}
 
@@ -176,7 +181,7 @@ func stringMatches(a, b string) bool {
 	// In that example they used an "i" and not a "¡", which is a bit
 	// awkward since it forces us to removes all "i"s at the beginning
 	// of words.
-	if strings.Contains(normalizedA, "!") || strings.Contains(normalizedB, "!") {
+	if strings.Contains(netflixTitle, "!") || strings.Contains(traktTitle, "!") {
 		// We DO NOT remove the 'i's in B to avoid potentially breaking
 		// valid titles
 		// Ex:
@@ -185,17 +190,17 @@ func stringMatches(a, b string) bool {
 		// If we cleanup both A and B we would end with
 		//   A: iPhone
 		//   B: Phone
-		normalizedA = wordStartingWithI.ReplaceAllStringFunc(normalizedA, func(s string) string {
+		netflixTitle = wordStartingWithI.ReplaceAllStringFunc(netflixTitle, func(s string) string {
 			// Keep the prefix (space or punctuation), drop the 'i'
 			return s[:len(s)-1]
 		})
-		normalizedA = strings.ReplaceAll(normalizedA, "¡", "")
-		normalizedB = strings.ReplaceAll(normalizedB, "¡", "")
+		netflixTitle = strings.ReplaceAll(netflixTitle, "¡", "")
+		traktTitle = strings.ReplaceAll(traktTitle, "¡", "")
 	}
 
 	for _, char := range charsToReplace {
-		normalizedA = strings.ReplaceAll(normalizedA, char, "")
-		normalizedB = strings.ReplaceAll(normalizedB, char, "")
+		netflixTitle = strings.ReplaceAll(netflixTitle, char, "")
+		traktTitle = strings.ReplaceAll(traktTitle, char, "")
 	}
 
 	// Another edge case we'd rather keep for the end
@@ -203,8 +208,19 @@ func stringMatches(a, b string) bool {
 	// Ex.
 	//   Netflix title: "Arrested Development: Forget Me Now"
 	//   Trakt title: "Arrested Development: Forget-Me-Now"
-	normalizedA = strings.ReplaceAll(normalizedA, " ", "-")
-	normalizedB = strings.ReplaceAll(normalizedB, " ", "-")
+	netflixTitle = strings.ReplaceAll(netflixTitle, " ", "-")
+	traktTitle = strings.ReplaceAll(traktTitle, " ", "-")
 
-	return strings.EqualFold(normalizedA, normalizedB)
+	return areEqual(netflixTitle, traktTitle, titleIsPartial)
+}
+
+func areEqual(a, b string, titleIsPartial bool) bool {
+	if titleIsPartial {
+		// If the title is partial, we need to account for that in our comparison
+		if len(a) < 3 {
+			return false
+		}
+		return strings.HasPrefix(b, a[:len(a)-3])
+	}
+	return strings.EqualFold(a, b)
 }

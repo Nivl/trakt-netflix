@@ -295,6 +295,12 @@ func TestStringMatches(t *testing.T) {
 			trakt:       "Arrested Development: Forget-Me-Now",
 			shouldMatch: true,
 		},
+		{
+			name:        "incomplete title",
+			netflix:     "A Special Episode - Death: The High Cos...",
+			trakt:       "A Special Episode - Death: The High Cost of Living",
+			shouldMatch: true,
+		},
 	}
 
 	for _, tc := range testCases {
