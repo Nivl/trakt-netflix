@@ -24,6 +24,95 @@ func TestParseTitle(t *testing.T) {
 			},
 		},
 		{
+			title: `Friendly Rivalry: "Episode 16"`,
+			expected: &netflix.WatchActivity{
+				Title:       "Friendly Rivalry",
+				EpisodeName: "Episode 16",
+				Season:      1,
+				IsShow:      true,
+			},
+		},
+		{
+			title: `Zombieverse: New Blood: "Episode 7"`,
+			expected: &netflix.WatchActivity{
+				Title:       "Zombieverse",
+				EpisodeName: "Episode 7",
+				Season:      2,
+				IsShow:      true,
+			},
+		},
+		{
+			title: `The Devil's Plan: Season 2: "Episode 9"`,
+			expected: &netflix.WatchActivity{
+				Title:       "The Devil's Plan",
+				Season:      2,
+				EpisodeName: "Episode 9",
+				IsShow:      true,
+			},
+		},
+		{
+			title: `Squid Game: Season 3: "○△□"`,
+			expected: &netflix.WatchActivity{
+				Title:       "Squid Game",
+				Season:      3,
+				EpisodeName: "○△□",
+				IsShow:      true,
+			},
+		},
+		{
+			title: `Squid Game: Season 3: "Humans Are…"`,
+			expected: &netflix.WatchActivity{
+				Title:       "Squid Game",
+				Season:      3,
+				EpisodeName: "Humans Are…",
+				IsShow:      true,
+			},
+		},
+		{
+			title: `Chicken Nugget: Limited Series: "Episode 5"`,
+			expected: &netflix.WatchActivity{
+				Title:       "Chicken Nugget",
+				EpisodeName: "Episode 5",
+				IsShow:      true,
+			},
+		},
+		{
+			title: `Old Enough!: Season 2: "Episode 4"`,
+			expected: &netflix.WatchActivity{
+				Title:       "Old Enough!",
+				Season:      2,
+				EpisodeName: "Episode 4",
+				IsShow:      true,
+			},
+		},
+		{
+			title: `Love, Death & Robots: Volume 4: "Close Encounters of the Mini Kind"`,
+			expected: &netflix.WatchActivity{
+				Title:       "Love, Death & Robots",
+				Season:      4,
+				EpisodeName: "Close Encounters of the Mini Kind",
+				IsShow:      true,
+			},
+		},
+		{
+			title: `A Man on the Inside: "The Curious Incident of the Dog in the Painting Class"`,
+			expected: &netflix.WatchActivity{
+				Title:       "A Man on the Inside",
+				EpisodeName: "The Curious Incident of the Dog in the Painting Class",
+				IsShow:      true,
+				Season:      1,
+			},
+		},
+		{
+			title: `Weak Hero: Class 2: "Episode 1"`,
+			expected: &netflix.WatchActivity{
+				Title:       "Weak Hero",
+				Season:      2,
+				EpisodeName: "Episode 1",
+				IsShow:      true,
+			},
+		},
+		{
 			title: `Goedam: Collection: "Threshold"`,
 			expected: &netflix.WatchActivity{
 				Title:       "Goedam",
@@ -78,6 +167,15 @@ func TestParseTitle(t *testing.T) {
 			expected: &netflix.WatchActivity{
 				Title:       "Slasher",
 				EpisodeName: "Soon Your Own Eyes Will See",
+				IsShow:      true,
+			},
+		},
+		{
+			title: `Arrested Development: Season 4 Remix: Fateful Consequences: "A Couple-A New Starts"`,
+			expected: &netflix.WatchActivity{
+				Title:       "Arrested Development",
+				Season:      4,
+				EpisodeName: "A Couple-A New Starts",
 				IsShow:      true,
 			},
 		},
