@@ -174,8 +174,8 @@ func TestParseTitle(t *testing.T) {
 			title: `Arrested Development: Season 4 Remix: Fateful Consequences: "A Couple-A New Starts"`,
 			expected: &netflix.WatchActivity{
 				Title:       "Arrested Development",
-				Season:      4,
-				EpisodeName: "A Couple-A New Starts",
+				Season:      0,
+				EpisodeName: "Season 4 Remix: A Couple-A New Starts",
 				IsShow:      true,
 			},
 		},

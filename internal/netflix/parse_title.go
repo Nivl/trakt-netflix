@@ -13,7 +13,7 @@ import (
 var (
 	titleDefaultRegex   = regexp.MustCompile(`(.+): (.+): "(.+)"`)
 	titleShowColonRegex = regexp.MustCompile(`((.+): (.+)): ((.+): (.+)): "(.+)"`)
-	titleSeasonRegex    = regexp.MustCompile(`(.+): (((Season|Part|Class|Volume) (\d+)((.+)?: .+)?)|(Limited Series)|(Collection)): "(.+)"`)
+	titleSeasonRegex    = regexp.MustCompile(`(.+): (((Season|Part|Class|Volume) (\d+))|(Limited Series)|(Collection)): "(.+)"`)
 	titleShortRegex     = regexp.MustCompile(`([^:]+): "([^:]+)"`)
 )
 
@@ -56,18 +56,16 @@ func ParseTitle(ctx context.Context, title string, reporter o11y.Reporter) *Watc
 	//                  `<Show Name>: Part <number>: "<Episode Name>"`
 	//                  `<Show Name>: Class <number>: "<Episode Name>"`
 	//                  `<Show Name>: Volume <number>: "<Episode Name>"`
-	//                  `<Show Name>: Season <number> <extra words>: <Season name>: "<Episode Name>"`
 	// Ex: Alice in Borderland: Season 2: "Episode 8"
 	// Ex: Strong Girl Nam-soon: Limited Series: "Forewarned Bloodbath"
 	// Ex: Goedam: Collection: "Birth"
 	// Ex: That '90s Show: Part 2: "Friends in Low Places"
 	// Ex: Weak Hero: Class 2: "Episode 1"
 	// Ex: Love, Death & Robots: Volume 4: "Close Encounters of the Mini Kind"
-	// Ex: Arrested Development: Season 4 Remix: Fateful Consequences: "A Couple-A New Starts"
 	matches = titleSeasonRegex.FindAllStringSubmatch(title, -1)
-	if len(matches) == 1 && len(matches[0]) == 11 {
+	if len(matches) == 1 && len(matches[0]) == 9 {
 		h.Title = matches[0][1]
-		h.EpisodeName = matches[0][10]
+		h.EpisodeName = matches[0][8]
 		// It's expected that it may fail if there is no season number
 		h.Season, _ = strconv.Atoi(matches[0][5])
 		return h
@@ -88,6 +86,21 @@ func ParseTitle(ctx context.Context, title string, reporter o11y.Reporter) *Watc
 		h.Season = 2
 		h.Title = "Zombieverse"
 		h.EpisodeName = strings.Trim(strings.TrimPrefix(title, prefix), "\"")
+		return h
+	}
+	// Netflix decided to re-release Arrested development Season 4 under a new title:
+	// "Season 4 Remix: Fateful Consequences"
+	// Season 4 (which technically exists) got removed from Netflix and replaced
+	// with the Remix.
+	// Two problems here:
+	// 1. The format is now: Arrested Development: Season 4 Remix: Fateful Consequences: "<episode name>"
+	// 2. Trakt treats this Remix as a Special, and not as season 4.
+	//    So for trakt, Season is 0 and not 4. And all the episodes titles are "Season 4 Remix: <episode name>"
+	prefix = "Arrested Development: Season 4 Remix: Fateful Consequences: "
+	if strings.HasPrefix(title, prefix) {
+		h.Season = 0
+		h.Title = "Arrested Development"
+		h.EpisodeName = "Season 4 Remix: " + strings.Trim(strings.TrimPrefix(title, prefix), "\"")
 		return h
 	}
 
