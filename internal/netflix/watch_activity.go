@@ -27,7 +27,7 @@ func (h *WatchActivity) String() string {
 func (h *WatchActivity) SearchQuery() string {
 	query := h.Title
 	if h.IsShow {
-		query = fmt.Sprintf("%s %s", h.Title, h.EpisodeName)
+		query = fmt.Sprintf("%s && %s", h.Title, h.EpisodeName)
 	}
 	return url.QueryEscape(query)
 }
