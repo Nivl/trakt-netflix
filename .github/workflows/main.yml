@@ -31,7 +31,7 @@ jobs:
     outputs:
       code-changed: ${{ steps.changes.outputs.src }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup Go
         id: restore-cache
@@ -69,7 +69,7 @@ jobs:
         password: ${{ secrets.github_token }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup Go
         id: restore-cache
@@ -89,7 +89,7 @@ jobs:
         password: ${{ secrets.github_token }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup Go
         id: restore-cache
@@ -108,7 +108,7 @@ jobs:
         password: ${{ secrets.github_token }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup Go
         id: restore-cache
@@ -132,7 +132,7 @@ jobs:
       packages: read
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@1583c0f09d26c58c59d25b0eef29792b7ce99d9a
@@ -163,7 +163,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@1583c0f09d26c58c59d25b0eef29792b7ce99d9a
