@@ -22,7 +22,7 @@ runs:
 
     - name: Restore & Update Go cache
       id: go-mod-cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ steps.go-cache-path.outputs.go-mod }}
         key: ${{ runner.os }}-go-mod-${{ hashFiles('./go.sum') }}
