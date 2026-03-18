@@ -15,9 +15,10 @@ func TestSearch(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		name      string
-		req       SearchRequest
-		wantQuery map[string]string
+		name           string
+		req            SearchRequest
+		wantQuery      map[string]string
+		wantShowPresent bool
 	}{
 		{
 			name: "movie search",
@@ -31,6 +32,7 @@ func TestSearch(t *testing.T) {
 				"type":  string(SearchTypeMovie),
 				"show":  "",
 			},
+			wantShowPresent: false,
 		},
 		{
 			name: "episode search with show",
@@ -44,6 +46,7 @@ func TestSearch(t *testing.T) {
 				"type":  string(SearchTypeEpisode),
 				"show":  "Goedam",
 			},
+			wantShowPresent: true,
 		},
 	}
 
@@ -53,13 +56,16 @@ func TestSearch(t *testing.T) {
 
 			var gotPath string
 			var gotQuery map[string]string
+			var gotShowPresent bool
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				gotPath = r.URL.Path
+				q := r.URL.Query()
 				gotQuery = map[string]string{
-					"query": r.URL.Query().Get("query"),
-					"type":  r.URL.Query().Get("type"),
-					"show":  r.URL.Query().Get("show"),
+					"query": q.Get("query"),
+					"type":  q.Get("type"),
+					"show":  q.Get("show"),
 				}
+				gotShowPresent = q.Has("show")
 
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = io.WriteString(w, "[]")
@@ -78,6 +84,7 @@ func TestSearch(t *testing.T) {
 			assert.Empty(t, searchResponse.Results)
 			assert.Equal(t, "/search", gotPath)
 			assert.Equal(t, tc.wantQuery, gotQuery)
+			assert.Equal(t, tc.wantShowPresent, gotShowPresent)
 		})
 	}
 }
