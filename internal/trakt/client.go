@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -160,9 +161,9 @@ func (c *Client) _request(ctx context.Context, method, path string, body io.Read
 	if strings.HasSuffix(c.baseURL, "/") && strings.HasPrefix(path, "/") {
 		path = path[1:]
 	}
-	url := c.baseURL + path
+	requestURL := c.baseURL + path
 
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	req, err := http.NewRequestWithContext(ctx, method, requestURL, body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create new HTTP request: %w", err)
 	}
@@ -350,11 +351,24 @@ type SearchResponse struct {
 	} `json:"results"`
 }
 
-// Search searches for a media item on Trakt using the provided query.
-func (c *Client) Search(ctx context.Context, typ SearchTypes, query string) (*SearchResponse, error) {
-	url := fmt.Sprintf("/search/%s?query=%s", typ, query)
+// SearchRequest contains the parameters used for a Trakt search.
+type SearchRequest struct {
+	Type  SearchTypes
+	Query string
+	Show  string
+}
 
-	resp, body, err := c.get(ctx, url, withNoAuth()) //nolint:bodyclose // the body is closed in _request
+// Search searches for a media item on Trakt using the provided query parameters.
+func (c *Client) Search(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+	query := url.Values{}
+	query.Set("query", req.Query)
+	query.Set("type", string(req.Type))
+	if req.Show != "" {
+		query.Set("show", req.Show)
+	}
+	searchURL := "/search?" + query.Encode()
+
+	resp, body, err := c.get(ctx, searchURL, withNoAuth()) //nolint:bodyclose // the body is closed in _request
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}

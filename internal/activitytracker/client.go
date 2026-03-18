@@ -93,9 +93,15 @@ func (c *Client) searchMedia(ctx context.Context, h *netflix.WatchActivity, medi
 		typ = trakt.SearchTypeEpisode
 	}
 
-	response, err := c.traktClient.Search(ctx, typ, h.SearchQuery())
+	req := trakt.SearchRequest{
+		Type:  typ,
+		Query: h.SearchQuery(),
+		Show:  h.SearchShow(),
+	}
+
+	response, err := c.traktClient.Search(ctx, req)
 	if err != nil {
-		return fmt.Errorf("searching for %s: %w", h.SearchQuery(), err)
+		return fmt.Errorf("searching for %s: %w", h.String(), err)
 	}
 
 	for i := range response.Results {
