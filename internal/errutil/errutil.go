@@ -7,8 +7,9 @@ import (
 	"log"
 )
 
-// Check calls the provided method and sets the error to err if err is nil
-// Deprecated: use RunAndSetError instead
+// Check calls the provided method and sets the error to err if err is nil.
+//
+// Deprecated: use RunAndSetError instead.
 func Check(f func() error, err *error) { //nolint: gocritic // the pointer of pointer is on purpose so we can change the value if it's nil
 	RunAndSetError(f, err, "")
 }

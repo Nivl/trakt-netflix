@@ -58,7 +58,7 @@ func (s Secret) GoString() string {
 // MarshalJSON implements the json.Marshaler interface.
 // It returns "**REDACTED**"
 func (s Secret) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%q", redacted)), nil
+	return strconv.AppendQuote(nil, redacted), nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface

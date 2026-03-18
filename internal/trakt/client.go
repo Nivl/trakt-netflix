@@ -345,9 +345,9 @@ func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*Refres
 type SearchResponse struct {
 	Results []struct {
 		Type    SearchTypes `json:"type"`
-		Movie   Media       `json:"movie,omitempty"`
-		Episode Episode     `json:"episode,omitempty"`
-		Show    Media       `json:"show,omitempty"`
+		Movie   Media       `json:"movie"`
+		Episode Episode     `json:"episode"`
+		Show    Media       `json:"show"`
 	} `json:"results"`
 }
 
@@ -444,7 +444,7 @@ func (c *Client) WriteAuthFile() error {
 		AccessToken:     c.auth.AccessToken.Get(),
 		RefreshToken:    c.auth.RefreshToken.Get(),
 	}
-	data, err := json.Marshal(auth)
+	data, err := json.Marshal(auth) //nolint:gosec // writing persisted auth tokens to the local auth file is intentional
 	if err != nil {
 		return fmt.Errorf("marshal auth data: %w", err)
 	}

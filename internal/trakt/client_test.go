@@ -15,9 +15,9 @@ func TestSearch(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		name           string
-		req            SearchRequest
-		wantQuery      map[string]string
+		name            string
+		req             SearchRequest
+		wantQuery       map[string]string
 		wantShowPresent bool
 	}{
 		{
