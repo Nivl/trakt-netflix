@@ -244,6 +244,121 @@ func TestFetchHistoryWithExistingData(t *testing.T) {
 	}
 }
 
+func TestFindEpisodeInShowSeasons(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name      string
+		activity  *netflix.WatchActivity
+		seasons   []trakt.Season
+		wantTrakt int
+		wantErr   string
+	}{
+		{
+			name: "prefers requested season when episode titles repeat",
+			activity: &netflix.WatchActivity{
+				Date:        "",
+				Title:       "Search Party",
+				EpisodeName: "Episode 1",
+				IsShow:      true,
+				Season:      2,
+			},
+			seasons: []trakt.Season{
+				{
+					Number: 1,
+					IDs:    trakt.IDs{Trakt: 0, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil},
+					Episodes: []trakt.Episode{
+						{Season: 1, Number: 1, Title: "Episode 1", Year: 0, IDs: trakt.IDs{Trakt: 1001, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil}},
+					},
+				},
+				{
+					Number: 2,
+					IDs:    trakt.IDs{Trakt: 0, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil},
+					Episodes: []trakt.Episode{
+						{Season: 2, Number: 1, Title: "Episode 1", Year: 0, IDs: trakt.IDs{Trakt: 2001, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil}},
+					},
+				},
+			},
+			wantTrakt: 2001,
+			wantErr:   "",
+		},
+		{
+			name: "season zero ignores season but still accepts a unique best title match",
+			activity: &netflix.WatchActivity{
+				Date:        "",
+				Title:       "Arrested Development",
+				EpisodeName: "Season 4 Remix: A Couple-A New Starts",
+				IsShow:      true,
+				Season:      0,
+			},
+			seasons: []trakt.Season{
+				{
+					Number: 0,
+					IDs:    trakt.IDs{Trakt: 0, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil},
+					Episodes: []trakt.Episode{
+						{Season: 0, Number: 1, Title: "Season 4 Remix: A Couple-A New Starts", Year: 0, IDs: trakt.IDs{Trakt: 3001, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil}},
+					},
+				},
+				{
+					Number: 4,
+					IDs:    trakt.IDs{Trakt: 0, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil},
+					Episodes: []trakt.Episode{
+						{Season: 4, Number: 1, Title: "Flight of the Phoenix", Year: 0, IDs: trakt.IDs{Trakt: 4001, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil}},
+					},
+				},
+			},
+			wantTrakt: 3001,
+			wantErr:   "",
+		},
+		{
+			name: "returns ambiguous when season is unknown and title repeats",
+			activity: &netflix.WatchActivity{
+				Date:        "",
+				Title:       "Some Show",
+				EpisodeName: "Episode 1",
+				IsShow:      true,
+				Season:      0,
+			},
+			seasons: []trakt.Season{
+				{
+					Number: 1,
+					IDs:    trakt.IDs{Trakt: 0, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil},
+					Episodes: []trakt.Episode{
+						{Season: 1, Number: 1, Title: "Episode 1", Year: 0, IDs: trakt.IDs{Trakt: 5001, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil}},
+					},
+				},
+				{
+					Number: 2,
+					IDs:    trakt.IDs{Trakt: 0, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil},
+					Episodes: []trakt.Episode{
+						{Season: 2, Number: 1, Title: "Episode 1", Year: 0, IDs: trakt.IDs{Trakt: 6001, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil}},
+					},
+				},
+			},
+			wantTrakt: 0,
+			wantErr:   "multiple matching episodes found",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			episode, err := findEpisodeInShowSeasons(tc.activity, tc.seasons)
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				require.EqualError(t, err, tc.wantErr)
+				assert.Nil(t, episode)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, episode)
+			assert.Equal(t, tc.wantTrakt, episode.IDs.Trakt)
+		})
+	}
+}
+
 func TestStringMatches(t *testing.T) {
 	t.Parallel()
 

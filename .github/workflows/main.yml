@@ -2,9 +2,9 @@ name: workflow
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: read
@@ -35,7 +35,7 @@ jobs:
 
       - name: Setup Go
         id: restore-cache
-        uses: './.github/actions/setup-go'
+        uses: "./.github/actions/setup-go"
 
       - name: Update cache if needed
         shell: sh
@@ -57,7 +57,6 @@ jobs:
               - '.github/workflows/main.yml'
               - '.github/actions/go-*/*.yml'
 
-
   build:
     if: needs.prepare-env.outputs.code-changed == 'true'
     needs: [prepare-env]
@@ -73,7 +72,7 @@ jobs:
 
       - name: Setup Go
         id: restore-cache
-        uses: './.github/actions/setup-go'
+        uses: "./.github/actions/setup-go"
 
       - name: Build
         run: task ci:build
@@ -93,7 +92,7 @@ jobs:
 
       - name: Setup Go
         id: restore-cache
-        uses: './.github/actions/setup-go'
+        uses: "./.github/actions/setup-go"
 
       - run: task ci:lint
 
@@ -112,7 +111,7 @@ jobs:
 
       - name: Setup Go
         id: restore-cache
-        uses: './.github/actions/setup-go'
+        uses: "./.github/actions/setup-go"
 
       - name: Test
         run: task ci:test RESULTS_DIR=/tmp/test-results
@@ -196,14 +195,7 @@ jobs:
   # This job is what github action will check to see if a PR is ready to
   # be merged.
   required-check:
-    needs:
-      [
-        prepare-env,
-        build,
-        lint,
-        test,
-        build-image,
-      ]
+    needs: [prepare-env, build, lint, test, build-image]
     # This is necessary since a failed/skipped dependent job would cause this job to be skipped
     if: always()
     runs-on: ubuntu-latest
@@ -214,4 +206,3 @@ jobs:
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: |
           echo "One of the dependent jobs have failed. You may need to re-run it." && exit 1
-

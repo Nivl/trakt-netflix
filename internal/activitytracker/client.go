@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -19,6 +20,8 @@ import (
 )
 
 var wordStartingWithI = regexp.MustCompile(`(?m)(^|[\s\p{P}])i`)
+
+var errMultipleEpisodeMatches = errors.New("multiple matching episodes found")
 
 // Client represents a client to interact with external services
 type Client struct {
@@ -88,14 +91,25 @@ func (c *Client) MarkAsWatched(ctx context.Context) {
 func (c *Client) searchMedia(ctx context.Context, h *netflix.WatchActivity, medias *trakt.MarkAsWatchedRequest) error {
 	now := time.Now().Format(time.RFC3339)
 
-	typ := trakt.SearchTypeMovie
 	if h.IsShow {
-		typ = trakt.SearchTypeEpisode
+		episode, err := c.findEpisode(ctx, h)
+		if err != nil {
+			return err
+		}
+		medias.Episodes = append(medias.Episodes, trakt.MarkAsWatched{
+			IDs:       episode.IDs,
+			WatchedAt: now,
+		})
+		return nil
 	}
 
-	response, err := c.traktClient.Search(ctx, typ, h.SearchQuery())
+	response, err := c.traktClient.Search(ctx, trakt.SearchRequest{
+		Type:  trakt.SearchTypeMovie,
+		Query: h.SearchQuery(),
+		Show:  h.SearchShow(),
+	})
 	if err != nil {
-		return fmt.Errorf("searching for %s: %w", h.SearchQuery(), err)
+		return fmt.Errorf("searching Trakt (query=%q, activity=%s): %w", h.SearchQuery(), h.String(), err)
 	}
 
 	for i := range response.Results {
@@ -111,22 +125,107 @@ func (c *Client) searchMedia(ctx context.Context, h *netflix.WatchActivity, medi
 			})
 			return nil
 		}
-
-		if r.Type == trakt.SearchTypeEpisode {
-			if !stringMatches(r.Show.Title, h.Title) || !stringMatches(r.Episode.Title, h.EpisodeName) {
-				continue
-			}
-			if h.Season > 0 && r.Episode.Season != h.Season {
-				continue
-			}
-			medias.Episodes = append(medias.Episodes, trakt.MarkAsWatched{
-				IDs:       r.Episode.IDs,
-				WatchedAt: now,
-			})
-			return nil
-		}
 	}
 	return errors.New("not found")
+}
+
+func (c *Client) findEpisode(ctx context.Context, h *netflix.WatchActivity) (*trakt.Episode, error) {
+	showSearch, err := c.traktClient.Search(ctx, trakt.SearchRequest{
+		Type:  trakt.SearchTypeShow,
+		Query: h.SearchShow(),
+		Show:  "",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("searching Trakt show (show=%q, episode=%q, activity=%s): %w", h.SearchShow(), h.EpisodeName, h.String(), err)
+	}
+
+	lastMatchErr := errors.New("not found")
+	for i := range showSearch.Results {
+		r := &showSearch.Results[i]
+		if r.Type != trakt.SearchTypeShow || !stringMatches(r.Show.Title, h.Title) {
+			continue
+		}
+
+		showID := showLookupID(r.Show)
+		if h.Season > 0 {
+			episodes, err := c.traktClient.GetSeasonEpisodes(ctx, showID, h.Season)
+			if err != nil {
+				return nil, fmt.Errorf("getting Trakt season episodes (show=%q, season=%d, activity=%s): %w", h.Title, h.Season, h.String(), err)
+			}
+
+			episode, err := findEpisodeInShowSeasons(h, []trakt.Season{{
+				Number:   h.Season,
+				IDs:      trakt.IDs{Trakt: 0, Slug: nil, IMDB: nil, TMDB: nil, TVDB: nil},
+				Episodes: episodes,
+			}})
+			if err == nil {
+				return episode, nil
+			}
+		}
+
+		seasons, err := c.traktClient.GetShowSeasons(ctx, showID, true)
+		if err != nil {
+			return nil, fmt.Errorf("getting Trakt show seasons (show=%q, activity=%s): %w", h.Title, h.String(), err)
+		}
+
+		episode, err := findEpisodeInShowSeasons(h, seasons)
+		if err == nil {
+			return episode, nil
+		}
+		lastMatchErr = err
+	}
+
+	return nil, lastMatchErr
+}
+
+func findEpisodeInShowSeasons(h *netflix.WatchActivity, seasons []trakt.Season) (*trakt.Episode, error) {
+	var seasonMatches []*trakt.Episode
+	var allMatches []*trakt.Episode
+	var specialMatches []*trakt.Episode
+
+	for i := range seasons {
+		season := &seasons[i]
+		for j := range season.Episodes {
+			episode := &season.Episodes[j]
+			if !stringMatches(episode.Title, h.EpisodeName) {
+				continue
+			}
+
+			allMatches = append(allMatches, episode)
+			if season.Number == 0 {
+				specialMatches = append(specialMatches, episode)
+			}
+			if h.Season > 0 && season.Number == h.Season {
+				seasonMatches = append(seasonMatches, episode)
+			}
+		}
+	}
+
+	switch {
+	case len(seasonMatches) == 1:
+		return seasonMatches[0], nil
+	case len(seasonMatches) > 1:
+		return nil, errMultipleEpisodeMatches
+	case h.Season > 0 && len(allMatches) == 1:
+		return allMatches[0], nil
+	case h.Season > 0 && len(allMatches) > 1:
+		return nil, errMultipleEpisodeMatches
+	case len(allMatches) == 1:
+		return allMatches[0], nil
+	case len(specialMatches) == 1:
+		return specialMatches[0], nil
+	case len(allMatches) > 1:
+		return nil, errMultipleEpisodeMatches
+	default:
+		return nil, errors.New("not found")
+	}
+}
+
+func showLookupID(show trakt.Media) string {
+	if show.IDs.Slug != nil && *show.IDs.Slug != "" {
+		return *show.IDs.Slug
+	}
+	return strconv.Itoa(show.IDs.Trakt)
 }
 
 // Sometime the title don't match due to unicode characters.

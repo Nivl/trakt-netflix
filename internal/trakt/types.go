@@ -7,6 +7,8 @@ type SearchTypes string
 const (
 	// SearchTypeMovie represents a movie search.
 	SearchTypeMovie SearchTypes = "movie"
+	// SearchTypeShow represents a show search.
+	SearchTypeShow SearchTypes = "show"
 	// SearchTypeEpisode represents an episode search.
 	SearchTypeEpisode SearchTypes = "episode"
 )
@@ -35,6 +37,13 @@ type Episode struct {
 	Title  string `json:"title"`
 	Year   int    `json:"year"`
 	IDs    IDs    `json:"ids"`
+}
+
+// Season represents a TV season in the Trakt API.
+type Season struct {
+	Number   int       `json:"number"`
+	IDs      IDs       `json:"ids"`
+	Episodes []Episode `json:"episodes,omitempty"`
 }
 
 // MarkAsWatched represents a watched item.

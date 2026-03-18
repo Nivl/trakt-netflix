@@ -2,7 +2,6 @@ package netflix
 
 import (
 	"fmt"
-	"net/url"
 )
 
 // WatchActivity contains the data from Netflix
@@ -18,16 +17,26 @@ type WatchActivity struct {
 // it returns a string representation of a WatchActivity.
 func (h *WatchActivity) String() string {
 	if h.IsShow {
+		if h.Season > 0 {
+			return fmt.Sprintf("%s: season %d: %s", h.Title, h.Season, h.EpisodeName)
+		}
 		return fmt.Sprintf("%s: %s", h.Title, h.EpisodeName)
 	}
 	return h.Title
 }
 
-// SearchQuery returns the query string to use on trakt to search for the media
+// SearchQuery returns the title to search for on Trakt.
 func (h *WatchActivity) SearchQuery() string {
-	query := h.Title
 	if h.IsShow {
-		query = fmt.Sprintf("%s && %s", h.Title, h.EpisodeName)
+		return h.EpisodeName
 	}
-	return url.QueryEscape(query)
+	return h.Title
+}
+
+// SearchShow returns the show title when the activity is for an episode search.
+func (h *WatchActivity) SearchShow() string {
+	if !h.IsShow {
+		return ""
+	}
+	return h.Title
 }

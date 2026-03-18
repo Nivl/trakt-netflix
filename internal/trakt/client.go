@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -160,9 +161,9 @@ func (c *Client) _request(ctx context.Context, method, path string, body io.Read
 	if strings.HasSuffix(c.baseURL, "/") && strings.HasPrefix(path, "/") {
 		path = path[1:]
 	}
-	url := c.baseURL + path
+	requestURL := c.baseURL + path
 
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	req, err := http.NewRequestWithContext(ctx, method, requestURL, body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create new HTTP request: %w", err)
 	}
@@ -344,17 +345,26 @@ func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*Refres
 type SearchResponse struct {
 	Results []struct {
 		Type    SearchTypes `json:"type"`
-		Movie   Media       `json:"movie,omitempty"`
-		Episode Episode     `json:"episode,omitempty"`
-		Show    Media       `json:"show,omitempty"`
+		Movie   Media       `json:"movie"`
+		Episode Episode     `json:"episode"`
+		Show    Media       `json:"show"`
 	} `json:"results"`
 }
 
-// Search searches for a media item on Trakt using the provided query.
-func (c *Client) Search(ctx context.Context, typ SearchTypes, query string) (*SearchResponse, error) {
-	url := fmt.Sprintf("/search/%s?query=%s", typ, query)
+// SearchRequest contains the parameters used for a Trakt search.
+type SearchRequest struct {
+	Type  SearchTypes
+	Query string
+	Show  string
+}
 
-	resp, body, err := c.get(ctx, url, withNoAuth()) //nolint:bodyclose // the body is closed in _request
+// Search searches for a media item on Trakt using the provided query parameters.
+func (c *Client) Search(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
+	query := url.Values{}
+	query.Set("query", req.Query)
+	searchURL := "/search/" + string(req.Type) + "?" + query.Encode()
+
+	resp, body, err := c.get(ctx, searchURL, withNoAuth()) //nolint:bodyclose // the body is closed in _request
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
@@ -369,6 +379,56 @@ func (c *Client) Search(ctx context.Context, typ SearchTypes, query string) (*Se
 	}
 
 	return &searchResponse, nil
+}
+
+// GetShowSeasons returns the seasons for a show and can optionally include all episodes.
+func (c *Client) GetShowSeasons(ctx context.Context, showID string, withEpisodes bool) ([]Season, error) {
+	query := url.Values{}
+	if withEpisodes {
+		query.Set("extended", "episodes")
+	}
+
+	showSeasonsURL := "/shows/" + url.PathEscape(showID) + "/seasons"
+	if encoded := query.Encode(); encoded != "" {
+		showSeasonsURL += "?" + encoded
+	}
+
+	resp, body, err := c.get(ctx, showSeasonsURL, withNoAuth()) //nolint:bodyclose // the body is closed in _request
+	if err != nil {
+		return nil, fmt.Errorf("get show seasons: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("http %d. See %s", resp.StatusCode, traktErrorCodeURL)
+	}
+
+	var seasons []Season
+	if err = json.Unmarshal(body, &seasons); err != nil {
+		return nil, err
+	}
+
+	return seasons, nil
+}
+
+// GetSeasonEpisodes returns all episodes for a specific season of a show.
+func (c *Client) GetSeasonEpisodes(ctx context.Context, showID string, season int) ([]Episode, error) {
+	seasonEpisodesURL := fmt.Sprintf("/shows/%s/seasons/%d", url.PathEscape(showID), season)
+
+	resp, body, err := c.get(ctx, seasonEpisodesURL, withNoAuth()) //nolint:bodyclose // the body is closed in _request
+	if err != nil {
+		return nil, fmt.Errorf("get season episodes: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("http %d. See %s", resp.StatusCode, traktErrorCodeURL)
+	}
+
+	var episodes []Episode
+	if err = json.Unmarshal(body, &episodes); err != nil {
+		return nil, err
+	}
+
+	return episodes, nil
 }
 
 // MarkAsWatchedRequest represents a request to mark items as watched.
