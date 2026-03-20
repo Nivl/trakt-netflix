@@ -22,6 +22,12 @@ import (
 
 const traktErrorCodeURL = "https://trakt.docs.apiary.io/#introduction/status-codes"
 
+const (
+	traktHTTPTimeout            = 30 * time.Second
+	traktTransientRetryAttempts = 3
+	traktTransientRetryDelay    = 250 * time.Millisecond
+)
+
 // ErrPendingAuthorization is returned when the authorization is still
 // pending, waiting for the user to complete the authorization flow.
 var ErrPendingAuthorization = errors.New("pending authorization")
@@ -41,6 +47,8 @@ type AccessTokenInfo struct {
 type Client struct {
 	// http is the HTTP client used to make requests to the Trakt API.
 	http *http.Client
+	// retrySleep waits between bounded retry attempts.
+	retrySleep func(time.Duration)
 	// baseURL is the base URL for the Trakt API.
 	baseURL string
 	// clientID is the client ID of the Trakt APP.
@@ -87,8 +95,9 @@ func NewClient(cfg ClientConfig) (clt *Client, err error) {
 
 	return &Client{
 		http: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: traktHTTPTimeout,
 		},
+		retrySleep:   time.Sleep,
 		baseURL:      "https://api.trakt.tv",
 		clientID:     cfg.ClientID,
 		clientSecret: cfg.ClientSecret,
@@ -132,25 +141,33 @@ func (c *Client) request(ctx context.Context, method, path string, body json.Raw
 		o(&options)
 	}
 
-	var bodyBuffer io.Reader = http.NoBody
-	if body != nil {
-		bodyBuffer = bytes.NewBuffer(body)
-	}
-
-	resp, respBody, err = c._request(ctx, method, path, bodyBuffer, options)
-	if err != nil {
-		return nil, nil, err
-	}
-	if !options.noAuth && !options.dontRetryOnAuthFailure && resp.StatusCode == http.StatusUnauthorized {
-		_, err := c.RefreshToken(ctx, c.auth.RefreshToken.Get())
-		if err != nil {
-			return nil, nil, fmt.Errorf("refresh token: %w", err)
+	for attempt := range traktTransientRetryAttempts {
+		var bodyBuffer io.Reader = http.NoBody
+		if body != nil {
+			bodyBuffer = bytes.NewReader(body)
 		}
-		newOpts := append(opts, withNoRetryOnAuthFailure()) //nolint:gocritic // appendAssign it's expected that we create a new list
-		return c.request(ctx, method, path, body, newOpts...)
+
+		resp, respBody, err = c._request(ctx, method, path, bodyBuffer, options)
+		if err != nil {
+			if resp == nil && shouldRetryTransientRequest(ctx, err, attempt) {
+				c.sleepBeforeRetry(traktRetryDelay(attempt))
+				continue
+			}
+			return resp, respBody, err
+		}
+		if !options.noAuth && !options.dontRetryOnAuthFailure && resp.StatusCode == http.StatusUnauthorized {
+			_, err := c.RefreshToken(ctx, c.auth.RefreshToken.Get())
+			if err != nil {
+				return nil, nil, fmt.Errorf("refresh token: %w", err)
+			}
+			newOpts := append(opts, withNoRetryOnAuthFailure()) //nolint:gocritic // appendAssign it's expected that we create a new list
+			return c.request(ctx, method, path, body, newOpts...)
+		}
+
+		return resp, respBody, nil
 	}
 
-	return resp, respBody, nil
+	return nil, nil, err
 }
 
 // _request is a low-level HTTP request function that sends a request to the
@@ -182,10 +199,30 @@ func (c *Client) _request(ctx context.Context, method, path string, body io.Read
 
 	respBody, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read response body: %w", err)
+		return resp, nil, fmt.Errorf("read response body: %w", err)
 	}
 
 	return resp, respBody, nil
+}
+
+func shouldRetryTransientRequest(ctx context.Context, err error, attempt int) bool {
+	if ctx.Err() != nil || attempt >= traktTransientRetryAttempts-1 {
+		return false
+	}
+
+	return errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err)
+}
+
+func traktRetryDelay(attempt int) time.Duration {
+	return time.Duration(attempt+1) * traktTransientRetryDelay
+}
+
+func (c *Client) sleepBeforeRetry(delay time.Duration) {
+	if c.retrySleep != nil {
+		c.retrySleep(delay)
+		return
+	}
+	time.Sleep(delay)
 }
 
 func (c *Client) post(ctx context.Context, path string, body any, opts ...requestOptionsFunc) (resp *http.Response, respBody []byte, err error) {
