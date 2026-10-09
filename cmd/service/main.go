@@ -16,7 +16,7 @@ import (
 	"github.com/Nivl/trakt-netflix/internal/trakt"
 	"github.com/Nivl/trakt-netflix/internal/ui"
 	"github.com/robfig/cron"
-	"github.com/sethvargo/go-envconfig"
+	"github.com/sethvargo/go-envconfig/v2"
 )
 
 type appConfig struct {

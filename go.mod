@@ -1,12 +1,12 @@
 module github.com/Nivl/trakt-netflix
 
-go 1.24.0
+go 1.25
 
 require (
 	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/ashwanthkumar/slack-go-webhook v0.0.0-20200209025033-430dd4e66960
 	github.com/robfig/cron v1.2.0
-	github.com/sethvargo/go-envconfig v1.3.0
+	github.com/sethvargo/go-envconfig/v2 v2.0.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
 	golang.org/x/text v0.33.0
